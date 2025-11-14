@@ -1,12 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { X, ZoomIn, ZoomOut, Download, RotateCw, Maximize2, Move } from 'lucide-react';
 
-const ImageModal = ({ isOpen, onClose, imageSrc, title, description }) => {
-  const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState(0);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+interface ImageModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  imageSrc: string;
+  title: string;
+  description?: string;
+}
+
+interface Position {
+  x: number;
+  y: number;
+}
+
+export const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageSrc, title, description }) => {
+  const [zoom, setZoom] = useState<number>(1);
+  const [rotation, setRotation] = useState<number>(0);
+  const [position, setPosition] = useState<Position>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragStart, setDragStart] = useState<Position>({ x: 0, y: 0 });
 
   useEffect(() => {
     if (isOpen) {
@@ -25,7 +38,7 @@ const ImageModal = ({ isOpen, onClose, imageSrc, title, description }) => {
   }, [isOpen]);
 
   useEffect(() => {
-    const handleEscape = (e) => {
+    const handleEscape = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') {
         onClose();
       }
@@ -39,7 +52,7 @@ const ImageModal = ({ isOpen, onClose, imageSrc, title, description }) => {
 
   if (!isOpen) return null;
 
-  const handleDownload = (e) => {
+  const handleDownload = (e: React.MouseEvent<HTMLButtonElement>): void => {
     e.stopPropagation();
     const link = document.createElement('a');
     link.href = imageSrc;
@@ -49,36 +62,36 @@ const ImageModal = ({ isOpen, onClose, imageSrc, title, description }) => {
     document.body.removeChild(link);
   };
 
-  const handleZoomIn = (e) => {
+  const handleZoomIn = (e: React.MouseEvent<HTMLButtonElement>): void => {
     e.stopPropagation();
     setZoom(prev => Math.min(prev + 0.25, 3));
   };
 
-  const handleZoomOut = (e) => {
+  const handleZoomOut = (e: React.MouseEvent<HTMLButtonElement>): void => {
     e.stopPropagation();
     setZoom(prev => Math.max(prev - 0.25, 0.5));
   };
 
-  const handleRotate = (e) => {
+  const handleRotate = (e: React.MouseEvent<HTMLButtonElement>): void => {
     e.stopPropagation();
     setRotation(prev => (prev + 90) % 360);
   };
 
-  const handleReset = (e) => {
+  const handleReset = (e: React.MouseEvent<HTMLButtonElement>): void => {
     e.stopPropagation();
     setZoom(1);
     setRotation(0);
     setPosition({ x: 0, y: 0 });
   };
 
-  const handleMouseDown = (e) => {
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>): void => {
     if (zoom > 1) {
       setIsDragging(true);
       setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
     }
   };
 
-  const handleMouseMove = (e) => {
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>): void => {
     if (isDragging && zoom > 1) {
       setPosition({
         x: e.clientX - dragStart.x,
@@ -87,7 +100,7 @@ const ImageModal = ({ isOpen, onClose, imageSrc, title, description }) => {
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (): void => {
     setIsDragging(false);
   };
 
@@ -198,5 +211,3 @@ const ImageModal = ({ isOpen, onClose, imageSrc, title, description }) => {
     </div>
   );
 };
-
-export default ImageModal;

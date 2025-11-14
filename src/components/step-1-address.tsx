@@ -1,27 +1,48 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin } from 'lucide-react';
+import type { StepProps } from '@/types';
 
 // Global flag to ensure setOptions is only called once
 let googleMapsInitialized = false;
 
-const Step1Address = ({ formData, onChange }) => {
-  const [addressParts, setAddressParts] = useState({
+interface AddressParts {
+  street: string;
+  number: string;
+  postalCode: string;
+  city: string;
+}
+
+interface GooglePlacePrediction {
+  place_id?: string;
+  placeId?: string;
+  structured_formatting?: {
+    main_text?: string;
+    secondary_text?: string;
+  };
+  mainText?: { text?: string };
+  secondaryText?: { text?: string };
+  text?: { text?: string };
+  toPlace?: () => any;
+}
+
+export const Step1Address: React.FC<StepProps> = ({ formData, onChange }) => {
+  const [addressParts, setAddressParts] = useState<AddressParts>({
     street: '',
     number: '',
     postalCode: '',
     city: ''
   });
-  const [suggestions, setSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const sessionTokenRef = useRef(null);
-  const autocompleteService = useRef(null);
-  const placesService = useRef(null);
-  const inputRef = useRef(null);
-  const mapRef = useRef(null);
-  const mapInstance = useRef(null);
-  const currentMarker = useRef(null);
+  const [suggestions, setSuggestions] = useState<GooglePlacePrediction[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+  // const sessionTokenRef = useRef<any>(null); // Reserved for future use
+  const autocompleteService = useRef<any>(null);
+  const placesService = useRef<any>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<any>(null);
+  const currentMarker = useRef<any>(null);
 
-  const [apiKeyMissing, setApiKeyMissing] = useState(false);
+  const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
 
   // Initialize Google Places API with script loading
   useEffect(() => {
@@ -44,8 +65,8 @@ const Step1Address = ({ formData, onChange }) => {
           if (mapRef.current && !mapInstance.current) {
             mapInstance.current = new window.google.maps.Map(mapRef.current, {
               center: { lat: 50.8503, lng: 4.3517 },
-              zoom: 13,
-              mapId: 'spraystone-map', // Add Map ID for Advanced Markers
+              zoom: 11,
+              mapId: 'spraystone-map',
               mapTypeControl: false,
               streetViewControl: false,
               fullscreenControl: false,
@@ -63,14 +84,14 @@ const Step1Address = ({ formData, onChange }) => {
       script.defer = true;
 
       // Global callback function
-      window.initGoogleMaps = () => {
+      (window as any).initGoogleMaps = () => {
         if (window.google && window.google.maps && window.google.maps.places) {
           // Initialize map with Map ID
           if (mapRef.current && !mapInstance.current) {
             mapInstance.current = new window.google.maps.Map(mapRef.current, {
-              center: { lat: 50.8503, lng: 4.3517 }, // Brussels center
-              zoom: 13,
-              mapId: 'spraystone-map', // Add Map ID for Advanced Markers
+              center: { lat: 50.8503, lng: 4.3517 },
+              zoom: 11,
+              mapId: 'spraystone-map',
               mapTypeControl: false,
               streetViewControl: false,
               fullscreenControl: false,
@@ -90,9 +111,9 @@ const Step1Address = ({ formData, onChange }) => {
       // If already initialized, just ensure map exists
       if (window.google && window.google.maps && window.google.maps.places) {
         if (mapRef.current && !mapInstance.current) {
-          mapInstance.current = new window.google.maps.Map(mapRef.current, {
-            center: { lat: 50.8503, lng: 4.3517 },
-            zoom: 13,
+            mapInstance.current = new window.google.maps.Map(mapRef.current, {
+              center: { lat: 50.8503, lng: 4.3517 },
+              zoom: 11,
             mapId: 'spraystone-map',
             mapTypeControl: false,
             streetViewControl: false,
@@ -104,28 +125,28 @@ const Step1Address = ({ formData, onChange }) => {
     }
   }, []);
 
-  const handlePartChange = (field, value) => {
+  const handlePartChange = (field: keyof AddressParts, value: string): void => {
     const updated = { ...addressParts, [field]: value };
     setAddressParts(updated);
     // Combine all parts into address
     const fullAddress = `${updated.street} ${updated.number}, ${updated.postalCode} ${updated.city}`.trim();
-    onChange({ target: { name: 'address', value: fullAddress } });
+    onChange({ target: { name: 'address', value: fullAddress } } as React.ChangeEvent<HTMLInputElement>);
   };
 
-  const handleAddressInput = async (e) => {
+  const handleAddressInput = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
     const value = e.target.value;
     onChange(e);
 
     // Revert to legacy AutocompleteService to avoid 403 Places API errors
     if (value.length > 2 && window.google && window.google.maps && window.google.maps.places) {
-      const { AutocompleteService, PlacesServiceStatus } = await window.google.maps.importLibrary('places');
+      const { AutocompleteService, PlacesServiceStatus } = await window.google.maps.importLibrary('places') as any;
       if (!autocompleteService.current) {
         autocompleteService.current = new AutocompleteService();
       }
 
       try {
         // Make two separate requests since "address cannot be mixed with other types"
-        const makeRequest = (types) => {
+        const makeRequest = (types: string[]): Promise<any[]> => {
           return new Promise((resolve) => {
             autocompleteService.current.getPlacePredictions(
               {
@@ -133,7 +154,7 @@ const Step1Address = ({ formData, onChange }) => {
                 componentRestrictions: { country: 'be' },
                 types: types
               },
-              (predictions, status) => {
+              (predictions: any[], status: any) => {
                 if (status === PlacesServiceStatus.OK && predictions) {
                   resolve(predictions);
                 } else {
@@ -167,16 +188,16 @@ const Step1Address = ({ formData, onChange }) => {
     }
   };
 
-  const selectPrediction = async (prediction) => {
-    // Legacy prediction is a plain object; new API prediction is a class
+  const selectPrediction = async (prediction: GooglePlacePrediction): Promise<void> => {
     const placeId = typeof prediction === 'object' && (prediction.place_id || prediction.placeId) ? (prediction.place_id || prediction.placeId) : prediction;
     if (!placeId || !window.google || !window.google.maps) return;
-    const { Place, PlacesService } = await window.google.maps.importLibrary('places');
+    
+    const { Place, PlacesService } = await window.google.maps.importLibrary('places') as any;
     if (!placesService.current) {
       placesService.current = new PlacesService(document.createElement('div'));
     }
+    
     try {
-      // Try new API Place.fetchFields if possible; otherwise fallback to legacy getDetails
       if (typeof prediction === 'object' && prediction.toPlace) {
         const place = prediction.toPlace();
         await place.fetchFields({ fields: ['addressComponents', 'formattedAddress', 'location', 'displayName'] });
@@ -185,7 +206,7 @@ const Step1Address = ({ formData, onChange }) => {
         // Legacy getDetails
         placesService.current.getDetails(
           { placeId, fields: ['address_components', 'formatted_address', 'geometry', 'name'] },
-          (place, status) => {
+          (place: any, status: any) => {
             if (status === window.google.maps.places.PlacesServiceStatus.OK) {
               handleLegacyPlaceResult(place);
             } else {
@@ -194,7 +215,7 @@ const Step1Address = ({ formData, onChange }) => {
                 try {
                   const placeNew = new Place({ id: placeId });
                   await placeNew.fetchFields({ fields: ['addressComponents', 'formattedAddress', 'location', 'displayName'] });
-                  handlePlaceResult(placeNew, placeNew.formattedAddress || prediction.structured_formatting?.main_text || '');
+                  handlePlaceResult(placeNew, placeNew.formattedAddress || (prediction as any).structured_formatting?.main_text || '');
                 } catch (e) {
                   console.error('New API fallback also failed:', e);
                 }
@@ -211,14 +232,14 @@ const Step1Address = ({ formData, onChange }) => {
     }
   };
 
-  const handlePlaceResult = (place, formatted) => {
+  const handlePlaceResult = (place: any, formatted: string): void => {
     let street = '';
     let number = '';
     let postalCode = '';
     let city = '';
 
     if (place.addressComponents) {
-      place.addressComponents.forEach((component) => {
+      place.addressComponents.forEach((component: any) => {
         const types = component.types || [];
         if (types.includes('route')) street = component.longText || component.shortText || component.long_name || '';
         if (types.includes('street_number')) number = component.longText || component.shortText || component.long_name || '';
@@ -250,7 +271,7 @@ const Step1Address = ({ formData, onChange }) => {
     }
 
     setAddressParts({ street, number, postalCode, city });
-    onChange({ target: { name: 'address', value: formatted } });
+    onChange({ target: { name: 'address', value: formatted } } as React.ChangeEvent<HTMLInputElement>);
 
     if (mapInstance.current && place.location) {
       // Clear previous marker
@@ -258,7 +279,7 @@ const Step1Address = ({ formData, onChange }) => {
         currentMarker.current.setMap(null);
       }
       mapInstance.current.setCenter(place.location);
-      mapInstance.current.setZoom(16);
+      mapInstance.current.setZoom(14);
       currentMarker.current = new window.google.maps.Marker({
         position: place.location,
         map: mapInstance.current,
@@ -271,14 +292,14 @@ const Step1Address = ({ formData, onChange }) => {
     setShowSuggestions(false);
   };
 
-  const handleLegacyPlaceResult = (place) => {
+  const handleLegacyPlaceResult = (place: any): void => {
     let street = '';
     let number = '';
     let postalCode = '';
     let city = '';
 
     if (place.address_components) {
-      place.address_components.forEach(component => {
+      place.address_components.forEach((component: any) => {
         const types = component.types;
         if (types.includes('route')) street = component.long_name;
         if (types.includes('street_number')) number = component.long_name;
@@ -311,7 +332,7 @@ const Step1Address = ({ formData, onChange }) => {
     }
 
     setAddressParts({ street, number, postalCode, city });
-    onChange({ target: { name: 'address', value: formatted } });
+    onChange({ target: { name: 'address', value: formatted } } as React.ChangeEvent<HTMLInputElement>);
 
     if (mapInstance.current && place.geometry && place.geometry.location) {
       // Clear previous marker
@@ -319,7 +340,7 @@ const Step1Address = ({ formData, onChange }) => {
         currentMarker.current.setMap(null);
       }
       mapInstance.current.setCenter(place.geometry.location);
-      mapInstance.current.setZoom(16);
+      mapInstance.current.setZoom(14);
       currentMarker.current = new window.google.maps.Marker({
         position: place.geometry.location,
         map: mapInstance.current,
@@ -439,5 +460,3 @@ const Step1Address = ({ formData, onChange }) => {
     </div>
   );
 };
-
-export default Step1Address;

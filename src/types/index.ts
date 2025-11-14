@@ -15,6 +15,7 @@ export interface FormData {
   timeline: Timeline;
   name: string;
   email: string;
+  phonePrefix: string;
   phone: string;
 }
 
@@ -27,14 +28,12 @@ export type Timeline = 'asap' | '1-3months' | '>3months' | 'tbd' | '';
 // Component Props Types
 export interface StepProps {
   formData: FormData;
-  onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
 }
 
 export interface Step1AddressProps extends StepProps {}
 
-export interface Step5FinishProps extends StepProps {
-  onTreatmentChange: (treatment: Treatment | '__clear_all__') => void;
-}
+export interface Step5FinishProps extends StepProps {}
 
 export interface Step6ImageProps {
   imagePreview: string | null;
@@ -53,7 +52,6 @@ export interface ResultsPageProps {
   generatedImage: string | null;
   result: string;
   onReset: () => void;
-  onRetryImage: (updateProgress?: (message: string) => void) => Promise<void>;
 }
 
 export interface ImageModalProps {

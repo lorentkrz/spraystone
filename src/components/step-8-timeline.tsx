@@ -1,14 +1,20 @@
 import React from 'react';
 import { Calendar } from 'lucide-react';
+import type { StepProps } from '@/types';
 
-const timelines = [
+interface TimelineOption {
+  id: string;
+  label: string;
+}
+
+const timelines: TimelineOption[] = [
   { id: 'asap', label: 'As soon as possible' },
   { id: '1-3months', label: 'In 1 to 3 months' },
   { id: '>3months', label: 'In more than 3 months' },
   { id: 'tbd', label: 'To be determined' },
 ];
 
-const Step6Timeline = ({ formData, onChange }) => {
+export const Step8Timeline: React.FC<StepProps> = ({ formData, onChange }) => {
   return (
     <div>
       <div className="mb-8">
@@ -24,7 +30,7 @@ const Step6Timeline = ({ formData, onChange }) => {
         {timelines.map((timeline) => (
           <button
             key={timeline.id}
-            onClick={() => onChange({ target: { name: 'timeline', value: timeline.id } })}
+            onClick={() => onChange({ target: { name: 'timeline', value: timeline.id } } as React.ChangeEvent<HTMLInputElement>)}
             className={`py-6 px-6 rounded-2xl font-medium transition-all flex items-center justify-center space-x-3 ${
               formData.timeline === timeline.id
                 ? 'bg-white ring-2 ring-green-500 text-green-600 shadow-lg'
@@ -39,5 +45,3 @@ const Step6Timeline = ({ formData, onChange }) => {
     </div>
   );
 };
-
-export default Step6Timeline;

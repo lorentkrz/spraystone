@@ -1,7 +1,29 @@
 import React from 'react';
-import { CheckCircle, MapPin, Home, Ruler, Paintbrush, Calendar, Image as ImageIcon, User, Mail } from 'lucide-react';
+import { CheckCircle, MapPin, Home, Ruler, Paintbrush, Calendar, User, Mail, Phone } from 'lucide-react';
+import type { FormData } from '@/types';
 
-const Step9Summary = ({ formData, imagePreview }) => {
+interface Step9SummaryProps {
+  formData: FormData;
+  imagePreview: string | null;
+}
+
+interface DetailRowProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}
+
+const DetailRow: React.FC<DetailRowProps> = ({ icon, label, value }) => (
+  <div className="flex items-center space-x-4 py-2">
+    <div className="text-green-600">{icon}</div>
+    <div className="flex-1">
+      <div className="text-sm text-gray-500">{label}</div>
+      <div className="font-medium text-gray-900">{value}</div>
+    </div>
+  </div>
+);
+
+export const Step9Summary: React.FC<Step9SummaryProps> = ({ formData, imagePreview }) => {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-10 text-center">
@@ -33,6 +55,11 @@ const Step9Summary = ({ formData, imagePreview }) => {
           <DetailRow icon={<Calendar className="w-5 h-5" />} label="Timeline" value={formData.timeline || 'To be determined'} />
           <DetailRow icon={<User className="w-5 h-5" />} label="Name" value={formData.name || 'Not provided'} />
           <DetailRow icon={<Mail className="w-5 h-5" />} label="Email" value={formData.email || 'Not provided'} />
+          <DetailRow
+            icon={<Phone className="w-5 h-5" />}
+            label="Phone"
+            value={formData.phone ? `${formData.phonePrefix} ${formData.phone}` : 'Not provided'}
+          />
         </div>
       </div>
 
@@ -45,15 +72,3 @@ const Step9Summary = ({ formData, imagePreview }) => {
     </div>
   );
 };
-
-const DetailRow = ({ icon, label, value }) => (
-  <div className="flex items-center space-x-4 py-2">
-    <div className="text-green-600">{icon}</div>
-    <div className="flex-1">
-      <div className="text-sm text-gray-500">{label}</div>
-      <div className="font-medium text-gray-900">{value}</div>
-    </div>
-  </div>
-);
-
-export default Step9Summary;

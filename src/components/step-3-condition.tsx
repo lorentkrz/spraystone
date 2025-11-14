@@ -1,14 +1,22 @@
 import React from 'react';
-import { AlertCircle, Droplets, CheckCircle, HelpCircle } from 'lucide-react';
+import { AlertCircle, Droplets, CheckCircle, HelpCircle, LucideIcon } from 'lucide-react';
+import type { StepProps } from '@/types';
 
-const conditions = [
+interface ConditionOption {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  color: string;
+}
+
+const conditions: ConditionOption[] = [
   { id: 'cracks', label: 'Visible cracks or peeling', icon: AlertCircle, color: '#EF4444' },
   { id: 'moss', label: 'Presence of moss, moisture, or stains', icon: Droplets, color: '#3B82F6' },
   { id: 'good', label: 'Appears to be in good condition', icon: CheckCircle, color: '#10B981' },
   { id: 'unknown', label: "I don't know", icon: HelpCircle, color: '#6B7280' },
 ];
 
-const Step3Condition = ({ formData, onChange }) => {
+export const Step3Condition: React.FC<StepProps> = ({ formData, onChange }) => {
   return (
     <div>
       <div className="mb-8">
@@ -27,7 +35,7 @@ const Step3Condition = ({ formData, onChange }) => {
           return (
             <button
               key={cond.id}
-              onClick={() => onChange({ target: { name: 'condition', value: cond.id } })}
+              onClick={() => onChange({ target: { name: 'condition', value: cond.id } } as React.ChangeEvent<HTMLInputElement>)}
               className={`p-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] ${
                 isSelected
                   ? 'ring-2 ring-green-500 shadow-lg bg-white scale-[1.02]'
@@ -50,5 +58,3 @@ const Step3Condition = ({ formData, onChange }) => {
     </div>
   );
 };
-
-export default Step3Condition;

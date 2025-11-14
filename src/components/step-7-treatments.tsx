@@ -1,17 +1,32 @@
 import React from 'react';
-import { Droplets, Sparkles, X, HelpCircle } from 'lucide-react';
+import { Droplets, Sparkles, X, HelpCircle, LucideIcon } from 'lucide-react';
 
-const options = [
+interface TreatmentOption {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: LucideIcon;
+  color: string;
+}
+
+interface Step7TreatmentsProps {
+  formData: {
+    treatments: string[];
+  };
+  onTreatmentChange: (id: string) => void;
+}
+
+const options: TreatmentOption[] = [
   { id: 'water-repellent', title: 'Water-repellent protection', subtitle: 'Anti-moisture treatment for long-lasting protection', icon: Droplets, color: 'bg-blue-500' },
   { id: 'anti-stain', title: 'Anti-stain / Anti-pollution treatment', subtitle: "Keeps your facade clean and protected from stains", icon: Sparkles, color: 'bg-purple-500' },
   { id: 'none', title: 'No / Not necessary', subtitle: 'Skip additional treatments', icon: X, color: 'bg-gray-500' },
   { id: 'unknown', title: "I don't know yet", subtitle: 'Get expert advice on recommended treatments', icon: HelpCircle, color: 'bg-orange-500' },
 ];
 
-const Step7Treatments = ({ formData, onTreatmentChange }) => {
-  const isSelected = (id) => formData.treatments.includes(id);
+export const Step7Treatments: React.FC<Step7TreatmentsProps> = ({ formData, onTreatmentChange }) => {
+  const isSelected = (id: string): boolean => formData.treatments.includes(id);
 
-  const handleClick = (id) => {
+  const handleClick = (id: string): void => {
     if (id === 'none' || id === 'unknown') {
       // Clear selections for neutral choices
       if (formData.treatments.length > 0) {
@@ -55,5 +70,3 @@ const Step7Treatments = ({ formData, onTreatmentChange }) => {
     </div>
   );
 };
-
-export default Step7Treatments;

@@ -1,81 +1,94 @@
 import React from 'react';
-import type { StepProps, FacadeTypeConfig } from '@/types';
+import type { StepProps } from '@/types';
 
-const facadeTypes: FacadeTypeConfig[] = [
-  {
-    id: 'brick',
-    label: 'Brick',
-    gradient: 'linear-gradient(135deg, #8B4513 0%, #CD853F 50%, #D2691E 100%)',
-    icon: '🧱',
+const textureStyles: Record<string, React.CSSProperties> = {
+  brick: {
+    backgroundColor: '#b45a3c',
+    backgroundImage:
+      'linear-gradient(#00000010 2px, transparent 2px), linear-gradient(90deg, #00000010 2px, transparent 2px)',
+    backgroundSize: '28px 14px, 56px 28px',
+    backgroundPosition: '0 0, 0 7px'
   },
-  {
-    id: 'render',
-    label: 'Render / Plaster',
-    gradient: 'linear-gradient(135deg, #E8D5B7 0%, #F5DEB3 50%, #DEB887 100%)',
-    icon: '🏠',
+  render: {
+    backgroundColor: '#eee2cf',
+    backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(0,0,0,0.08) 100%)'
   },
-  {
-    id: 'concrete',
-    label: 'Concrete Block',
-    gradient: 'linear-gradient(135deg, #708090 0%, #778899 50%, #696969 100%)',
-    icon: '⬜',
+  concrete: {
+    backgroundColor: '#7b8790',
+    backgroundImage:
+      'linear-gradient(#ffffff0d 1px, transparent 1px), linear-gradient(90deg, #ffffff0d 1px, transparent 1px)',
+    backgroundSize: '32px 32px',
+    filter: 'grayscale(0.1)'
   },
-  {
-    id: 'painted',
-    label: 'Painted Facade',
-    gradient: 'linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FF8C00 100%)',
-    icon: '🎨',
+  painted: {
+    backgroundColor: '#ffd065',
+    backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.06) 100%)'
   },
-  {
-    id: 'other',
-    label: 'Other (to be discussed)',
-    gradient: 'linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 50%, #9E9E9E 100%)',
-    icon: '❓',
-  },
-];
+  other: {
+    backgroundColor: '#dcd4cb',
+    backgroundImage:
+      'linear-gradient(135deg, rgba(255,255,255,0.35) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.35) 75%, transparent 75%, transparent)',
+    backgroundSize: '18px 18px'
+  }
+};
+
+const descriptions: Record<string, string> = {
+  brick: 'Visible joints, warm clay modules, textured relief.',
+  render: 'Smooth mineral render over insulation layer.',
+  concrete: 'Concrete blocks or prefab panels with grid joints.',
+  painted: 'Painted facade or cladding with uniform coat.',
+  other: 'Natural stone, wood, or a mixed-material envelope.'
+};
+
+const labels: Record<string, string> = {
+  brick: 'Brick / masonry',
+  render: 'Render / plaster',
+  concrete: 'Concrete block',
+  painted: 'Painted facade',
+  other: 'Other or mixed'
+};
 
 export const Step2FacadeType: React.FC<StepProps> = ({ formData, onChange }) => {
   return (
     <div>
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-3 text-center">
-          What type of facade do you have?
-        </h2>
-        <p className="text-gray-600 text-center">
-          Choose the option that best matches your current facade
-        </p>
+      <div className="mb-8 text-center">
+        <h2 className="mb-3 text-2xl font-bold text-gray-900">What type of facade do you have?</h2>
+        <p className="text-gray-600">Select the base material that most closely matches your exterior.</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {facadeTypes.map((type: FacadeTypeConfig) => {
-          const isSelected = formData.facadeType === type.id;
-          return (
-            <button
-              key={type.id}
-              type="button"
-              onClick={() =>
-                onChange({
-                  target: { name: 'facadeType', value: type.id },
-                } as React.ChangeEvent<HTMLInputElement>)
-              }
-              className={`group relative overflow-hidden rounded-xl transition-all bg-white ${
-                isSelected
-                  ? 'ring-2 ring-green-500 shadow-lg scale-[1.02]'
-                  : 'border border-gray-200 hover:border-green-300 hover:shadow-md'
-              }`}
-            >
-              <div
-                className="h-28 w-full flex items-center justify-center"
-                style={{ background: type.gradient }}
+      <div className="overflow-x-auto pb-2">
+        <div className="grid grid-rows-2 grid-flow-col auto-cols-[minmax(200px,1fr)] gap-4 min-w-[min(520px,100%)]">
+          {(Object.keys(labels) as Array<keyof typeof labels>).map((key) => {
+            const isSelected = formData.facadeType === key;
+            const textureStyle = textureStyles[key] || {};
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() =>
+                  onChange({ target: { name: 'facadeType', value: key } } as React.ChangeEvent<HTMLInputElement>)
+                }
+                className={`group flex min-h-[220px] flex-col overflow-hidden rounded-2xl border text-left transition-all ${
+                  isSelected
+                    ? 'border-[#d4a574] shadow-xl'
+                    : 'border-gray-200 hover:border-[#d4a574]/70 hover:shadow-lg'
+                }`}
               >
-                <div className="text-5xl">{type.icon}</div>
-              </div>
-              <div className="p-3 text-center">
-                <span className="font-semibold text-gray-900 text-sm">{type.label}</span>
-              </div>
-            </button>
-          );
-        })}
+                <div className="flex h-32 items-center justify-center" style={textureStyle}>
+                  <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    {labels[key]}
+                  </span>
+                </div>
+                <div className="flex flex-1 flex-col justify-between p-4">
+                  <p className="text-sm text-gray-600">{descriptions[key]}</p>
+                  {isSelected && (
+                    <span className="text-xs font-bold uppercase tracking-wide text-[#c4955e]">Selected</span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

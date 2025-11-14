@@ -1,7 +1,8 @@
 import React from 'react';
 import { User, Mail, Phone } from 'lucide-react';
+import type { StepProps } from '@/types';
 
-const Step8Contact = ({ formData, onChange }) => {
+export const Step9Contact: React.FC<StepProps> = ({ formData, onChange }) => {
   return (
     <div>
       <div className="mb-8">
@@ -63,5 +64,3 @@ const Step8Contact = ({ formData, onChange }) => {
     </div>
   );
 };
-
-export default Step8Contact;

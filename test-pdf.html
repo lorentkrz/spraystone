@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PDF Test</title>
+    <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/jspdf-autotable@latest/dist/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+    <button onclick="testPDF()">Test PDF</button>
+    <script>
+        function testPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Test both approaches
+            try {
+                // Method approach (old)
+                if (typeof doc.autoTable === 'function') {
+                    console.log('Method approach works');
+                }
+            } catch (e) {
+                console.log('Method approach failed:', e.message);
+            }
+            
+            try {
+                // Function approach (new)
+                autoTable(doc, {
+                    head: [['Test', 'Column']],
+                    body: [['Test', 'Data']],
+                    startY: 20
+                });
+                console.log('Function approach works');
+                doc.save('test.pdf');
+            } catch (e) {
+                console.log('Function approach failed:', e.message);
+            }
+        }
+    </script>
+</body>
+</html>
