@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "server": "tsx api/apply-spraystone.ts",
+    "server": "node api/apply-spraystone.js",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "type-check": "tsc --noEmit"
