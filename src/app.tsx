@@ -40,6 +40,17 @@ const PROXY_IMAGE_ENDPOINT =
 const IMAGE_GENERATION_ETA_SECONDS = Number(
   import.meta.env.VITE_IMAGE_GENERATION_ETA_SECONDS || 30
 );
+const IMAGE_GENERATION_SIZE = ((): "256x256" | "512x512" | "1024x1024" => {
+  const candidate = import.meta.env.VITE_IMAGE_GENERATION_SIZE;
+  if (candidate === "256x256" || candidate === "512x512" || candidate === "1024x1024")
+    return candidate;
+  return "512x512";
+})();
+const IMAGE_GENERATION_DIM = Number(IMAGE_GENERATION_SIZE.split("x")[0]) || 512;
+const ENABLE_BATCH_IMAGE_GENERATION =
+  import.meta.env.VITE_ENABLE_BATCH_IMAGE_GENERATION !== "false";
+const GENERATION_UPLOAD_MIME_TYPE = "image/jpeg";
+const GENERATION_UPLOAD_QUALITY = 0.86;
 
 type FinishId = Exclude<FormData["finish"], "">;
 type GeneratedImagesByFinish = Partial<Record<FinishId, string>>;
@@ -568,16 +579,103 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
     if (!uploadedImage || !imagePreview) {
       throw new Error("missing_upload");
     }
+    const baseName = (uploadedImage.name || "spraystone-upload")
+      .replace(/\.(heic|heif|jpe?g|png|webp)$/i, "")
+      .trim();
     const prepared = await letterboxToFile(
       imagePreview,
-      { width: 1024, height: 1024 },
+      { width: IMAGE_GENERATION_DIM, height: IMAGE_GENERATION_DIM },
       {
-        fileName: uploadedImage.name || "spraystone-upload.png",
-        mimeType: "image/png",
+        fileName: `${baseName || "spraystone-upload"}-prepared.jpg`,
+        mimeType: GENERATION_UPLOAD_MIME_TYPE,
+        quality: GENERATION_UPLOAD_QUALITY,
         background: "#fdf8f2",
       }
     );
     return { uploadForGeneration: prepared.file, cropRect: prepared.crop };
+  };
+
+  const generateBatchImagePrompt = (finishes: FinishId[]) => {
+    const finishMap: Record<string, string> = {
+      "natural-stone":
+        "Belgian limestone inspired Spraystone blocks with soft chiseled edges, pale silver-grey palette, matte mineral texture, and subtle aggregate sparkle",
+      smooth:
+        "Modern smooth render with micro-texture, even tone, delicate sheen, and razor-sharp transitions around openings",
+      textured:
+        "Decorative mineral coating with layered depth, gentle relief, highlighted shadows, and artisanal trowel marks",
+      suggest:
+        "Premium Spraystone standard set: neutral stone blend with light amber undertones and authentic joint patterning",
+      other:
+        "Custom Spraystone hybrid with warm brick / masonry cues, terracotta-beige undertones, subtle joint lines, and a crisp mineral texture",
+    };
+
+    const referenceLines = [
+      "- Image A: user-uploaded facade (base image to edit)",
+      ...finishes.map((finish, idx) => {
+        const letter = String.fromCharCode("B".charCodeAt(0) + idx);
+        const label =
+          FINISH_LABELS[finish as keyof typeof FINISH_LABELS] ||
+          FINISH_LABELS["natural-stone"];
+        return `- Image ${letter}: reference texture for ${finish} (${label})`;
+      }),
+    ].join("\n");
+
+    const variations = finishes
+      .map((finish, idx) => {
+        const letter = String.fromCharCode("B".charCodeAt(0) + idx);
+        const finishLabel =
+          FINISH_LABELS[finish as keyof typeof FINISH_LABELS] ||
+          FINISH_LABELS["natural-stone"];
+        const finishDescription = finishMap[finish] || finishMap["natural-stone"];
+        const selectionJson = JSON.stringify(getSelectionContext({ finish }));
+        const scaleNote =
+          finish === "other"
+            ? "If a brick/masonry pattern is used, keep a realistic brick scale (~ 21 x 6.5 cm) with consistent mortar joints."
+            : "Block scale ~ 25 x 8 cm with tight joints, deep mortar lines, and natural variation around reveals.";
+
+        return [
+          `${idx + 1}) Finish: ${finish} (${finishLabel})`,
+          `Reference: Image ${letter} (finish texture)`,
+          `Target look: ${finishLabel} - ${finishDescription}.`,
+          scaleNote,
+          `Selection context JSON: ${selectionJson}`,
+        ].join("\n");
+      })
+      .join("\n\n");
+
+    const constraintSection = [
+      "Preserve the full framing of Image A: no crop, zoom, rotate, or change in aspect ratio.",
+      "Preserve all architecture, proportions, rooflines, windows, doors, trims, railings, and surroundings exactly as in Image A.",
+      "Preserve all architectural geometry, framing, and fenestration 1:1 from Image A.",
+      "Replace only the exterior wall surfaces (brick, render, plaster, painted areas) with the Spraystone material.",
+      "Do not modify window frames, glass reflections, landscaping, or sky.",
+      "Do not add or remove people, vehicles, plants, furniture, or any new scene elements.",
+      "Maintain camera angle, focal length, and perspective identical to Image A.",
+      "Lighting must remain natural daylight with soft shadows and no HDR bloom.",
+      "Keep fine details (mortar lines, sills, joints, edges, stains) crisp and physically plausible-avoid plastic smoothing.",
+      "Ensure texture scale is consistent and shading is physically plausible.",
+      "Final output must read as a real renovation photo (photoreal), not an illustration or 3D render.",
+    ]
+      .map((line) => `- ${line}`)
+      .join("\n");
+
+    return [
+      "TASK:",
+      `Generate ${finishes.length} separate edited outputs of Image A (n=${finishes.length}).`,
+      "Each output must apply a different Spraystone finish using the corresponding reference texture image.",
+      "",
+      "MATERIAL REFERENCES:",
+      referenceLines,
+      "",
+      "VARIATIONS (output order):",
+      variations,
+      "",
+      "CONSTRAINTS:",
+      constraintSection,
+      "",
+      "OUTPUT:",
+      `Return ${finishes.length} images in the exact order listed above.`,
+    ].join("\n");
   };
 
   const createProgressReporter = (options?: {
@@ -641,7 +739,7 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
       try {
         const form = new FormData();
         form.append("prompt", imagePrompt);
-        form.append("size", "1024x1024");
+        form.append("size", IMAGE_GENERATION_SIZE);
         form.append("n", "1");
         form.append("response_format", "b64_json");
         form.append("image", uploadForGeneration);
@@ -755,7 +853,7 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
       const form = new FormData();
       form.append("model", OPENAI_IMAGE_MODEL);
       form.append("prompt", promptWithContext);
-      form.append("size", "1024x1024");
+      form.append("size", IMAGE_GENERATION_SIZE);
       if (!OPENAI_IMAGE_MODEL.startsWith("gpt-image")) {
         form.append("response_format", "b64_json");
       }
@@ -825,9 +923,11 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               imageBase64: base64,
+              imageMimeType: uploadForGeneration.type,
               prompt: imagePrompt,
-              size: "1024x1024",
+              size: IMAGE_GENERATION_SIZE,
               materialReferenceBase64,
+              materialReferenceMimeType,
               selections: selectionContext,
             }),
           });
@@ -952,6 +1052,9 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
     const finishesToGenerate = formData.previewFinishes?.length
       ? formData.previewFinishes
       : [...RESULT_FINISHES];
+    const missingFinishes = finishesToGenerate.filter(
+      (finish) => !generatedImagesByFinish[finish]
+    );
     const hasAllGenerated = finishesToGenerate.every((finish) =>
       Boolean(generatedImagesByFinish[finish])
     );
@@ -964,6 +1067,87 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
       const prepared = await prepareUploadForGeneration();
       const total = finishesToGenerate.length;
       const nextImages: GeneratedImagesByFinish = { ...generatedImagesByFinish };
+
+      if (
+        IMAGE_PROVIDER === "proxy-openai" &&
+        ENABLE_BATCH_IMAGE_GENERATION &&
+        missingFinishes.length > 1
+      ) {
+        const reportProgress = createProgressReporter({
+          prefix: t("results.preview.generation.generatingTitle"),
+        });
+
+        try {
+          reportProgress(t("progress.image.lockingReference"), 18);
+          const materialRefs = await Promise.all(
+            missingFinishes.map(async (finish) => {
+              const dataUrl = await fetchReferenceDataUrl(finish);
+              if (!dataUrl) return null;
+              return {
+                base64: dataUrl.split(",")[1],
+                mimeType: getMimeFromDataUrl(dataUrl),
+              };
+            })
+          );
+
+          if (materialRefs.some((ref) => !ref)) {
+            throw new Error("missing_reference");
+          }
+
+          const base64 = await fileToBase64NoPrefix(prepared.uploadForGeneration);
+          const batchPrompt = generateBatchImagePrompt(missingFinishes);
+
+          reportProgress(t("progress.image.sendingReferences"), 62);
+          const resp = await withRetry(
+            async () => {
+              const response = await fetch(PROXY_IMAGE_ENDPOINT, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  imageBase64: base64,
+                  imageMimeType: prepared.uploadForGeneration.type,
+                  prompt: batchPrompt,
+                  size: IMAGE_GENERATION_SIZE,
+                  finishIds: missingFinishes,
+                  materialReferences: materialRefs,
+                }),
+              });
+              if (!response.ok) {
+                throw new Error(`Proxy ${response.status}: ${await response.text()}`);
+              }
+              return response.json();
+            },
+            {
+              retries: 2,
+              baseDelayMs: 1200,
+              onRetry: (attempt, total) =>
+                reportProgress(
+                  t("progress.image.artisansRetry", { attempt, total }),
+                  72
+                ),
+            }
+          );
+
+          const outputsByFinish = resp?.outputsByFinish || null;
+          if (!outputsByFinish || typeof outputsByFinish !== "object") {
+            throw new Error("missing_batch_outputs");
+          }
+
+          reportProgress(t("progress.image.assemblingBrief"), 84);
+          for (const finish of missingFinishes) {
+            const b64 = outputsByFinish[finish];
+            if (!b64) continue;
+            const raw = `data:image/png;base64,${b64}`;
+            try {
+              nextImages[finish] = await cropDataUrl(raw, prepared.cropRect);
+            } catch {
+              nextImages[finish] = raw;
+            }
+          }
+        } catch (err) {
+          console.warn("Batch finish generation failed; falling back to per-finish.", err);
+        }
+      }
 
       for (let i = 0; i < total; i++) {
         const finish = finishesToGenerate[i];
