@@ -1,5 +1,8 @@
 import React from 'react';
 import type { StepProps } from '@/types';
+import { useI18n } from '@/i18n';
+import { SelectionMark } from '@/components/selection-mark';
+import { selectableCardClass } from '@/utils/selectable';
 
 const textureStyles: Record<string, React.CSSProperties> = {
   brick: {
@@ -33,62 +36,61 @@ const textureStyles: Record<string, React.CSSProperties> = {
 };
 
 const descriptions: Record<string, string> = {
-  brick: 'Visible joints, warm clay modules, textured relief.',
-  render: 'Smooth mineral render over insulation layer.',
-  concrete: 'Concrete blocks or prefab panels with grid joints.',
-  painted: 'Painted facade or cladding with uniform coat.',
-  other: 'Natural stone, wood, or a mixed-material envelope.'
+  brick: 'steps.facadeType.options.brick.description',
+  render: 'steps.facadeType.options.render.description',
+  concrete: 'steps.facadeType.options.concrete.description',
+  painted: 'steps.facadeType.options.painted.description',
+  other: 'steps.facadeType.options.other.description'
 };
 
 const labels: Record<string, string> = {
-  brick: 'Brick / masonry',
-  render: 'Render / plaster',
-  concrete: 'Concrete block',
-  painted: 'Painted facade',
-  other: 'Other or mixed'
+  brick: 'steps.facadeType.options.brick.label',
+  render: 'steps.facadeType.options.render.label',
+  concrete: 'steps.facadeType.options.concrete.label',
+  painted: 'steps.facadeType.options.painted.label',
+  other: 'steps.facadeType.options.other.label'
 };
 
 export const Step2FacadeType: React.FC<StepProps> = ({ formData, onChange }) => {
+  const { t } = useI18n();
   return (
     <div>
-      <div className="mb-8 text-center">
-        <h2 className="mb-3 text-2xl font-bold text-gray-900">What type of facade do you have?</h2>
-        <p className="text-gray-600">Select the base material that most closely matches your exterior.</p>
+      <div className="mb-5 text-center sm:mb-8">
+        <h2 className="mb-3 text-2xl font-bold text-gray-900">{t('steps.facadeType.title')}</h2>
+        <p className="text-gray-600">{t('steps.facadeType.subtitle')}</p>
       </div>
 
-      <div className="overflow-x-auto pb-2">
-        <div className="grid grid-rows-2 grid-flow-col auto-cols-[minmax(200px,1fr)] gap-4 min-w-[min(520px,100%)]">
-          {(Object.keys(labels) as Array<keyof typeof labels>).map((key) => {
-            const isSelected = formData.facadeType === key;
-            const textureStyle = textureStyles[key] || {};
-            return (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {(Object.keys(labels) as Array<keyof typeof labels>).map((key) => {
+          const isSelected = formData.facadeType === key;
+          const textureStyle = textureStyles[key] || {};
+          return (
               <button
                 key={key}
                 type="button"
                 onClick={() =>
                   onChange({ target: { name: 'facadeType', value: key } } as React.ChangeEvent<HTMLInputElement>)
                 }
-                className={`group flex min-h-[220px] flex-col overflow-hidden rounded-2xl border text-left transition-all ${
-                  isSelected
-                    ? 'border-[#d4a574] shadow-xl'
-                    : 'border-gray-200 hover:border-[#d4a574]/70 hover:shadow-lg'
-                }`}
+                className={selectableCardClass(
+                  isSelected,
+                  'group flex min-h-[clamp(120px,18vh,220px)] flex-col overflow-hidden text-left'
+                )}
               >
-                <div className="flex h-32 items-center justify-center" style={textureStyle}>
+                <SelectionMark isSelected={isSelected} />
+                <div
+                  className="flex h-[clamp(56px,10vh,128px)] items-center justify-center"
+                  style={textureStyle}
+                >
                   <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-gray-700">
-                    {labels[key]}
+                    {t(labels[key])}
                   </span>
                 </div>
-                <div className="flex flex-1 flex-col justify-between p-4">
-                  <p className="text-sm text-gray-600">{descriptions[key]}</p>
-                  {isSelected && (
-                    <span className="text-xs font-bold uppercase tracking-wide text-[#c4955e]">Selected</span>
-                  )}
+                <div className="flex flex-1 flex-col justify-between p-3 sm:p-4">
+                  <p className="line-clamp-2 text-sm text-gray-600">{t(descriptions[key])}</p>
                 </div>
               </button>
             );
           })}
-        </div>
       </div>
     </div>
   );

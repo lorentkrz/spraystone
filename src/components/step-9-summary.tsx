@@ -50,7 +50,15 @@ export const Step9Summary: React.FC<Step9SummaryProps> = ({ formData, imagePrevi
         <div className="p-6 space-y-4">
           <DetailRow icon={<MapPin className="w-5 h-5" />} label="Address" value={formData.address || 'Not provided'} />
           <DetailRow icon={<Home className="w-5 h-5" />} label="Facade Type" value={formData.facadeType || 'Not specified'} />
-          <DetailRow icon={<Ruler className="w-5 h-5" />} label="Surface Area" value={formData.surfaceArea ? `${formData.surfaceArea} m²` : 'To be measured'} />
+          <DetailRow
+            icon={<Ruler className="w-5 h-5" />}
+            label="Surface Area"
+            value={
+              formData.surfaceArea && formData.surfaceArea !== 'unknown'
+                ? `${formData.surfaceArea} m²`
+                : 'To be measured'
+            }
+          />
           <DetailRow icon={<Paintbrush className="w-5 h-5" />} label="Finish" value={formData.finish || 'Natural stone'} />
           <DetailRow icon={<Calendar className="w-5 h-5" />} label="Timeline" value={formData.timeline || 'To be determined'} />
           <DetailRow icon={<User className="w-5 h-5" />} label="Name" value={formData.name || 'Not provided'} />

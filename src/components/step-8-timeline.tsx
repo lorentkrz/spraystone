@@ -1,44 +1,55 @@
 import React from 'react';
 import { Calendar } from 'lucide-react';
-import type { StepProps } from '@/types';
+import type { StepProps, Timeline } from '@/types';
+import { useI18n } from '@/i18n';
+import { SelectionMark } from '@/components/selection-mark';
+import { selectableCardClass } from '@/utils/selectable';
 
 interface TimelineOption {
-  id: string;
-  label: string;
+  id: Timeline;
 }
 
 const timelines: TimelineOption[] = [
-  { id: 'asap', label: 'As soon as possible' },
-  { id: '1-3months', label: 'In 1 to 3 months' },
-  { id: '>3months', label: 'In more than 3 months' },
-  { id: 'tbd', label: 'To be determined' },
+  { id: 'asap' },
+  { id: '1-3months' },
+  { id: '>3months' },
+  { id: 'tbd' },
 ];
 
 export const Step8Timeline: React.FC<StepProps> = ({ formData, onChange }) => {
+  const { t } = useI18n();
+
   return (
     <div>
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-3 text-center">
-          What is your desired timeline for the work?
+      <div className="mb-5 sm:mb-8">
+        <h2 className="mb-3 text-center text-2xl font-bold text-gray-900">
+          {t('steps.timeline.title')}
         </h2>
-        <p className="text-gray-600 text-center">
-          This helps us schedule your project effectively
-        </p>
+        <p className="text-center text-gray-600">{t('steps.timeline.subtitle')}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+      <div className="mx-auto grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
         {timelines.map((timeline) => (
           <button
             key={timeline.id}
-            onClick={() => onChange({ target: { name: 'timeline', value: timeline.id } } as React.ChangeEvent<HTMLInputElement>)}
-            className={`py-6 px-6 rounded-2xl font-medium transition-all flex items-center justify-center space-x-3 ${
-              formData.timeline === timeline.id
-                ? 'bg-white ring-2 ring-green-500 text-green-600 shadow-lg'
-                : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-300 hover:shadow-md'
-            }`}
+            type="button"
+            onClick={() =>
+              onChange({
+                target: { name: 'timeline', value: timeline.id },
+              } as React.ChangeEvent<HTMLInputElement>)
+            }
+            className={selectableCardClass(
+              formData.timeline === timeline.id,
+              `flex items-center justify-center space-x-3 bg-white px-5 py-4 font-medium sm:px-6 sm:py-6 ${
+                formData.timeline === timeline.id
+                  ? 'text-[#2D2A26]'
+                  : 'text-gray-700'
+              }`
+            )}
           >
-            <Calendar className="w-5 h-5" />
-            <span>{timeline.label}</span>
+            <SelectionMark isSelected={formData.timeline === timeline.id} />
+            <Calendar className="h-5 w-5" />
+            <span>{t(`steps.timeline.options.${timeline.id}`)}</span>
           </button>
         ))}
       </div>

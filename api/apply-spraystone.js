@@ -9,7 +9,7 @@ app.use(express.json({ limit: '20mb' }));
 // Body: { imageBase64: string (no data: prefix), prompt?: string, size?: '1024x1024' | '512x512' | '256x256' }
 app.post('/api/apply-spraystone', async (req, res) => {
   try {
-    const { imageBase64, prompt, materialReferenceBase64, selections } = req.body || {};
+    const { imageBase64, prompt, materialReferenceBase64, selections, size } = req.body || {};
     if (!imageBase64 || !prompt) {
       return res.status(400).json({ error: 'imageBase64 and prompt required' });
     }
@@ -22,10 +22,17 @@ app.post('/api/apply-spraystone', async (req, res) => {
 
     const selectionJson = selections ? JSON.stringify(selections) : null;
     const promptWithContext = selectionJson ? `${prompt} Selection context JSON: ${selectionJson}` : prompt;
+    const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1.5';
     const form = new FormData();
-    form.append('model', 'gpt-image-1');
+    form.append('model', model);
     form.append('prompt', promptWithContext);
-    form.append('size', '1024x1024');
+    const allowedSizes = new Set(['1024x1024', '512x512', '256x256']);
+    const safeSize = typeof size === 'string' && allowedSizes.has(size) ? size : '1024x1024';
+    form.append('size', safeSize);
+    form.append('n', '1');
+    if (!model.startsWith('gpt-image')) {
+      form.append('response_format', 'b64_json');
+    }
     form.append(
       'image[]',
       new Blob([Buffer.from(imageBase64, 'base64')], { type: 'image/png' }),
@@ -49,7 +56,16 @@ app.post('/api/apply-spraystone', async (req, res) => {
 
     const json = await response.json();
 
-    const outputBase64 = json?.data?.[0]?.b64_json || null;
+    let outputBase64 = json?.data?.[0]?.b64_json || null;
+
+    if (!outputBase64 && json?.data?.[0]?.url) {
+      const imageResponse = await fetch(json.data[0].url);
+      if (!imageResponse.ok) {
+        throw new Error(`Unable to fetch image URL: ${imageResponse.status}`);
+      }
+      const arrayBuffer = await imageResponse.arrayBuffer();
+      outputBase64 = Buffer.from(arrayBuffer).toString('base64');
+    }
 
     if (!outputBase64) {
       return res.status(502).json({ error: 'No image returned from OpenAI' });

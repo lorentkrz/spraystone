@@ -11,18 +11,21 @@ export interface FormData {
   condition: Condition;
   surfaceArea: string;
   finish: Finish;
+  previewFinishes: PreviewFinish[];
   treatments: Treatment[];
   timeline: Timeline;
   name: string;
   email: string;
   phonePrefix: string;
   phone: string;
+  callDuringDay: boolean;
 }
 
 export type FacadeType = 'brick' | 'render' | 'concrete' | 'painted' | 'other' | '';
-export type Condition = 'excellent' | 'good' | 'moderate' | 'poor' | '';
+export type Condition = 'cracks' | 'moss' | 'good' | 'unknown' | '';
 export type Finish = 'natural-stone' | 'smooth' | 'textured' | 'suggest' | 'other' | '';
-export type Treatment = 'water-repellent' | 'anti-stain';
+export type PreviewFinish = 'natural-stone' | 'smooth' | 'textured' | 'other';
+export type Treatment = 'water-repellent' | 'anti-stain' | 'none' | 'unknown';
 export type Timeline = 'asap' | '1-3months' | '>3months' | 'tbd' | '';
 
 // Component Props Types
@@ -33,7 +36,9 @@ export interface StepProps {
 
 export interface Step1AddressProps extends StepProps {}
 
-export interface Step5FinishProps extends StepProps {}
+export interface Step5FinishProps extends StepProps {
+  onTogglePreviewFinish: (finish: PreviewFinish) => void;
+}
 
 export interface Step6ImageProps {
   imagePreview: string | null;

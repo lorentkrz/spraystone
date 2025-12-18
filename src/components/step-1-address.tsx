@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin } from 'lucide-react';
 import type { StepProps } from '@/types';
+import { useI18n } from '@/i18n';
 
 // Global flag to ensure setOptions is only called once
 let googleMapsInitialized = false;
@@ -26,6 +27,7 @@ interface GooglePlacePrediction {
 }
 
 export const Step1Address: React.FC<StepProps> = ({ formData, onChange }) => {
+  const { t } = useI18n();
   const [addressParts, setAddressParts] = useState<AddressParts>({
     street: '',
     number: '',
@@ -354,107 +356,127 @@ export const Step1Address: React.FC<StepProps> = ({ formData, onChange }) => {
   };
 
   return (
-    <div>
-      <div className="mb-8">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mb-4 flex-shrink-0 sm:mb-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-3 text-center">
-          Where is your building located?
+          {t('steps.address.title')}
         </h2>
         <p className="text-gray-600 text-center">
-          We'll use this for accurate measurements and site planning
+          {t('steps.address.subtitle')}
         </p>
       </div>
 
-      <div className="space-y-4">
-        {/* Full Address with Autocomplete */}
-        <div className="relative">
-          <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            ref={inputRef}
-            type="text"
-            name="address"
-            value={formData.address}
-            onChange={handleAddressInput}
-            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            placeholder="Start typing your address..."
-            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white text-gray-900"
-          />
-          
-          {/* Autocomplete Suggestions */}
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {suggestions.map((suggestion) => {
-                const key = suggestion.place_id || suggestion.placeId || Math.random();
-                const onClick = () => selectPrediction(suggestion);
-                const mainText = suggestion.structured_formatting?.main_text || suggestion.mainText?.text || suggestion.text?.text || '';
-                const secondaryText = suggestion.structured_formatting?.secondary_text || suggestion.secondaryText?.text || '';
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={onClick}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-start gap-2"
-                  >
-                    <MapPin className="w-4 h-4 text-gray-400 mt-1 flex-shrink-0" />
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{mainText}</div>
-                      <div className="text-xs text-gray-500">{secondaryText}</div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+        <div className="flex flex-col rounded-2xl border border-[#eadfcb] bg-white/80 p-4 shadow-sm lg:flex-[1.1]">
+          {/* Full Address with Autocomplete */}
+          <div className="relative">
+            <MapPin className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              ref={inputRef}
+              type="text"
+              name="address"
+              value={formData.address}
+              onChange={handleAddressInput}
+              onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              placeholder={t('steps.address.placeholder')}
+              className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-12 pr-4 text-gray-900"
+            />
 
-        {/* Address Parts Grid - Responsive */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <input
-            type="text"
-            value={addressParts.street}
-            onChange={(e) => handlePartChange('street', e.target.value)}
-            placeholder="Street"
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white text-gray-900"
-          />
-          <input
-            type="text"
-            value={addressParts.number}
-            onChange={(e) => handlePartChange('number', e.target.value)}
-            placeholder="Number"
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white text-gray-900"
-          />
-          <input
-            type="text"
-            value={addressParts.postalCode}
-            onChange={(e) => handlePartChange('postalCode', e.target.value)}
-            placeholder="Postal code"
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white text-gray-900"
-          />
-          <input
-            type="text"
-            value={addressParts.city}
-            onChange={(e) => handlePartChange('city', e.target.value)}
-            placeholder="City"
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white text-gray-900"
-          />
-        </div>
-      </div>
-
-      {/* Google Map */}
-      <div className="mt-8 w-full h-64 bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
-        <div 
-          ref={mapRef}
-          className="w-full h-full"
-          style={{ minHeight: '256px' }}
-        >
-          {apiKeyMissing && (
-            <div className="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 flex items-center justify-center">
-              <div className="text-center">
-                <MapPin className="w-16 h-16 text-green-600 mx-auto mb-2 opacity-30" />
-                <p className="text-gray-500 text-sm">Google Maps API key required</p>
+            {/* Autocomplete Suggestions */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg">
+                {suggestions.slice(0, 4).map((suggestion) => {
+                  const key =
+                    suggestion.place_id || suggestion.placeId || Math.random();
+                  const onClick = () => selectPrediction(suggestion);
+                  const mainText =
+                    suggestion.structured_formatting?.main_text ||
+                    suggestion.mainText?.text ||
+                    suggestion.text?.text ||
+                    '';
+                  const secondaryText =
+                    suggestion.structured_formatting?.secondary_text ||
+                    suggestion.secondaryText?.text ||
+                    '';
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={onClick}
+                      className="flex w-full items-start gap-2 border-b border-gray-100 px-4 py-3 text-left hover:bg-gray-50 last:border-b-0"
+                    >
+                      <MapPin className="mt-1 h-4 w-4 flex-shrink-0 text-gray-400" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {mainText}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {secondaryText}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+                {suggestions.length > 4 && (
+                  <div className="px-4 py-2 text-[11px] text-gray-500">
+                    {t('steps.address.moreSuggestionsHint')}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* Address Parts Grid - Responsive */}
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <input
+              type="text"
+              value={addressParts.street}
+              onChange={(e) => handlePartChange('street', e.target.value)}
+              placeholder={t('steps.address.street')}
+              className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 sm:col-span-2"
+            />
+            <input
+              type="text"
+              value={addressParts.number}
+              onChange={(e) => handlePartChange('number', e.target.value)}
+              placeholder={t('steps.address.number')}
+              className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900"
+            />
+            <input
+              type="text"
+              value={addressParts.postalCode}
+              onChange={(e) => handlePartChange('postalCode', e.target.value)}
+              placeholder={t('steps.address.postalCode')}
+              className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900"
+            />
+            <input
+              type="text"
+              value={addressParts.city}
+              onChange={(e) => handlePartChange('city', e.target.value)}
+              placeholder={t('steps.address.city')}
+              className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 sm:col-span-2"
+            />
+          </div>
+        </div>
+
+        {/* Google Map */}
+        <div className="flex aspect-[16/10] min-h-0 w-full flex-1 flex-col overflow-hidden rounded-2xl border border-[#eadfcb] bg-white/80 shadow-sm lg:aspect-auto">
+          <div
+            ref={mapRef}
+            className="relative flex-1 min-h-0 bg-gray-100"
+          >
+            {apiKeyMissing && (
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#fff7ec] to-[#e8dcc8]">
+                <div className="text-center">
+                  <MapPin className="mx-auto mb-2 h-16 w-16 text-[#c4955e] opacity-40" />
+                  <p className="text-[#6b5e4f] text-sm">
+                    {t('steps.address.mapsKeyMissing')}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

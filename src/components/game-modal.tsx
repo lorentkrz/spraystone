@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactModal from 'react-modal';
 import Lottie from 'react-lottie-player';
+import { useI18n } from '@/i18n';
 const LOTTIE_CHEER = 'https://assets2.lottiefiles.com/packages/lf20_jbrw3hcz.json';
 export interface GameModalProps {
   isVisible: boolean;
@@ -383,6 +384,7 @@ const hyperfluxSrcDoc = String.raw`<!DOCTYPE html>
   </body>
 </html>`;
 export const GameModal: React.FC<GameModalProps> = ({ isVisible, onClose, progress, onComplete }) => {
+  const { t } = useI18n();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [session, setSession] = useState(0);
   const [showCongrats, setShowCongrats] = useState(false);
@@ -422,9 +424,9 @@ export const GameModal: React.FC<GameModalProps> = ({ isVisible, onClose, progre
   const statusText =
     typeof progress === 'number'
       ? progress >= 99
-        ? 'Render ready - showing your facade'
-        : `Rendering preview... ${Math.round(progress)}%`
-      : 'Preparing high-res preview...';
+        ? t('gameModal.status.ready')
+        : t('gameModal.status.rendering', { percent: Math.round(progress) })
+      : t('gameModal.status.preparing');
   const isRendering = typeof progress !== 'number' || progress < 99;
   return (
     <ReactModal
@@ -454,26 +456,30 @@ export const GameModal: React.FC<GameModalProps> = ({ isVisible, onClose, progre
           boxShadow: '0 40px 90px rgba(13,12,10,0.45)'
         }
       }}
-      contentLabel="Hyperflux Defender"
+      contentLabel={t('gameModal.contentLabel')}
     >
       <div className="flex max-h-[92vh] flex-col gap-4 bg-gradient-to-br from-[#fef5e6]/90 via-[#f9ebd2]/90 to-[#f5e3cb]/90 p-5 text-[#2d2a26]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-[#c4955e]">Spraystone render queue</p>
-            <p className="mt-1 text-sm text-[#5e5243]">Rendering backstage while you play a quick Hyperflux round.</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-[#c4955e]">
+              {t('gameModal.title')}
+            </p>
+            <p className="mt-1 text-sm text-[#5e5243]">
+              {t('gameModal.subtitle')}
+            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="rounded-full border border-[#d4a574]/40 bg-white/80 px-3 py-2 text-sm font-semibold text-[#7a5b3d] shadow-sm transition hover:bg-white"
-            aria-label="Close mini game"
+            aria-label={t('gameModal.closeAria')}
           >
-            Close
+            {t('gameModal.close')}
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#d4a574]/30 bg-white/80 px-4 py-3 text-sm text-[#5e5243] shadow-inner shadow-white/60">
           <p className="flex-1 min-w-[220px]">
-            Hyperflux Defender keeps the crew busy while the Spraystone render stream finishes.
+            {t('gameModal.info')}
           </p>
           <div className="inline-flex items-center gap-2 rounded-full border border-[#d4a574]/40 bg-[#fff6ea] px-3 py-1 text-xs font-semibold text-[#7a5b3d]">
             {isRendering ? (
@@ -501,7 +507,9 @@ export const GameModal: React.FC<GameModalProps> = ({ isVisible, onClose, progre
       {showCongrats && (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center bg-[#fef5e6]/85 backdrop-blur">
           <Lottie play loop path={LOTTIE_CHEER} style={{ width: 160, height: 160 }} />
-          <p className="mt-4 text-3xl font-extrabold text-[#2d2a26]">Facade ready!</p>
+          <p className="mt-4 text-3xl font-extrabold text-[#2d2a26]">
+            {t('gameModal.ready')}
+          </p>
         </div>
       )}
     </ReactModal>

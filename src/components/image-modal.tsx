@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, ZoomIn, ZoomOut, Download, RotateCw, Maximize2, Move } from 'lucide-react';
+import { useI18n } from '@/i18n';
 
 interface ImageModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface Position {
 }
 
 export const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageSrc, title, description }) => {
+  const { t } = useI18n();
   const [zoom, setZoom] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
   const [position, setPosition] = useState<Position>({ x: 0, y: 0 });
@@ -22,18 +24,17 @@ export const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageSr
   const [dragStart, setDragStart] = useState<Position>({ x: 0, y: 0 });
 
   useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
     if (isOpen) {
       document.body.style.overflow = 'hidden';
       // Reset on open
       setZoom(1);
       setRotation(0);
       setPosition({ x: 0, y: 0 });
-    } else {
-      document.body.style.overflow = 'unset';
     }
     
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = prevOverflow;
     };
   }, [isOpen]);
 
@@ -106,7 +107,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageSr
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/96 backdrop-blur-md transition-all duration-300"
+      className="fixed inset-0 z-[100] flex cursor-pointer items-center justify-center bg-black/96 backdrop-blur-md transition-all duration-300"
       style={{ animation: 'fade-in 0.3s ease-out' }}
       onClick={onClose}
       onMouseMove={handleMouseMove}
@@ -115,6 +116,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageSr
       {/* Close Button */}
       <button
         onClick={onClose}
+        aria-label={t('imageModal.close')}
         className="absolute top-6 right-6 z-50 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-all backdrop-blur-sm group"
       >
         <X className="w-6 h-6 text-white group-hover:rotate-90 transition-transform duration-300" />
@@ -125,35 +127,35 @@ export const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageSr
         <button
           onClick={handleZoomIn}
           className="p-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-all backdrop-blur-sm group"
-          title="Zoom In"
+          title={t('imageModal.zoomIn')}
         >
           <ZoomIn className="w-5 h-5 text-white group-hover:scale-110 transition-transform" />
         </button>
         <button
           onClick={handleZoomOut}
           className="p-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-all backdrop-blur-sm group"
-          title="Zoom Out"
+          title={t('imageModal.zoomOut')}
         >
           <ZoomOut className="w-5 h-5 text-white group-hover:scale-110 transition-transform" />
         </button>
         <button
           onClick={handleRotate}
           className="p-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-all backdrop-blur-sm group"
-          title="Rotate"
+          title={t('imageModal.rotate')}
         >
           <RotateCw className="w-5 h-5 text-white group-hover:rotate-90 transition-transform" />
         </button>
         <button
           onClick={handleReset}
           className="p-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-all backdrop-blur-sm group"
-          title="Reset"
+          title={t('imageModal.reset')}
         >
           <Maximize2 className="w-5 h-5 text-white group-hover:scale-110 transition-transform" />
         </button>
         <button
           onClick={handleDownload}
-          className="p-2.5 bg-green-600 hover:bg-green-700 rounded-lg transition-all backdrop-blur-sm group"
-          title="Download"
+          className="p-2.5 bg-[#d4a574] hover:bg-[#c4955e] rounded-lg transition-all backdrop-blur-sm group"
+          title={t('imageModal.download')}
         >
           <Download className="w-5 h-5 text-white group-hover:scale-110 transition-transform" />
         </button>
@@ -168,7 +170,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageSr
 
       {/* Modal Content */}
       <div
-        className="relative max-w-[95vw] max-h-[90vh] m-4"
+        className="relative m-4 max-h-[90vh] max-w-[95vw] cursor-default"
         style={{ animation: 'scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -201,10 +203,10 @@ export const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageSr
         <div className="mt-4 text-center space-y-1">
           <p className="text-gray-400 text-xs flex items-center justify-center gap-2">
             <Move className="w-3 h-3" />
-            {zoom > 1 ? 'Drag to pan' : 'Zoom in to pan'}
+            {zoom > 1 ? t('imageModal.hintDrag') : t('imageModal.hintZoom')}
           </p>
           <p className="text-gray-500 text-xs">
-            Click outside or press ESC to close
+            {t('imageModal.hintClose')}
           </p>
         </div>
       </div>

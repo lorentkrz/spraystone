@@ -15,7 +15,7 @@ export const IMAGE_PROVIDER = import.meta.env.VITE_IMAGE_PROVIDER || 'proxy-open
 
 // Model Configuration
 export const OPENAI_CHAT_MODEL = import.meta.env.VITE_OPENAI_CHAT_MODEL || 'gpt-4o';
-export const OPENAI_IMAGE_MODEL = 'gpt-image-1';
+export const OPENAI_IMAGE_MODEL = import.meta.env.VITE_OPENAI_IMAGE_MODEL || 'gpt-image-1.5';
 export const GEMINI_TEXT_MODEL = 'gemini-2.5-flash';
 export const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
 
