@@ -216,7 +216,7 @@ export const nl = {
     contact: {
       name: 'Contact',
       title: 'Hoe kunnen we je contacteren?',
-      subtitle: 'Geef minstens één contactmethode zodat we je kunnen bereiken.',
+      subtitle: 'Alle velden zijn verplicht zodat we je kunnen contacteren.',
       fields: {
         firstName: { placeholder: 'Voornaam' },
         lastName: { placeholder: 'Achternaam' },
@@ -261,6 +261,17 @@ export const nl = {
         body: 'Als je wil, kan je een andere afwerking genereren en vergelijken.',
         cta: 'Toon afwerkingen',
       },
+    },
+    generationPopup: {
+      title: 'Preview wordt gegenereerd',
+      body:
+        'De afbeelding wordt gegenereerd. Even geduld voor de preview en de schatting. Bedankt.',
+      timerLabel: 'Geschatte resterende tijd',
+      status: 'Spraystone preview wordt gerenderd',
+    },
+    actions: {
+      generateOther: 'Genereer andere afwerking',
+      backToWebsite: 'Terug naar de website',
     },
     summaryTitle: 'Samenvatting',
     pdfError: 'Fout bij het genereren van de PDF. Probeer opnieuw.',
@@ -334,7 +345,7 @@ export const nl = {
       previewTitle: 'Kies een afwerking',
       previewAction: 'Bekijk dit textuurstaal',
       previewHelp:
-        'Tik op een afwerking om te selecteren. Gegenereerde afwerkingen openen meteen; andere kan je hierboven genereren.',
+        'Selecteer een afwerking om de preview te wijzigen. Gebruik Genereer andere afwerking om een nieuwe versie te maken.',
       locked: 'Selecteer om te genereren',
       title: 'Kies een andere textuur',
       generateTitle: 'Genereer deze textuur',
@@ -427,6 +438,7 @@ export const nl = {
       timeline: 'Kies een gewenste timing',
       phoneForCall: 'Vul een geldig telefoonnummer in om een oproep aan te vragen',
       emailOrPhone: 'Geef een geldig e-mailadres of telefoonnummer op',
+      contactRequired: 'Vul alle verplichte contactvelden in',
       complete: 'Vul deze stap volledig in',
     },
   },

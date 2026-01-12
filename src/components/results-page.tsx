@@ -1,35 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Camera, Download, Euro, Loader2, Send } from 'lucide-react';
-import { generateQuotePDF } from '@/utils/pdf-generator';
+import { Camera, Euro, Loader2 } from 'lucide-react';
 import { ImageModal } from './image-modal';
 import { useI18n } from '@/i18n';
 import type { FormData } from '@/types';
-import { SelectionMark } from '@/components/selection-mark';
 import { LanguageSwitcher } from '@/components/language-switcher';
-import { selectableCardClass, selectableSegmentClass } from '@/utils/selectable';
 
 type FinishId = Exclude<FormData['finish'], ''>;
-type GeneratedImagesByFinish = Partial<Record<FinishId, string>>;
 
 interface ResultsPageProps {
   formData: FormData;
   imagePreview: string | null;
   generatedImage: string | null;
-  generatedImagesByFinish: GeneratedImagesByFinish;
   activeGeneratedFinish: FinishId | null;
-  finishOptions: readonly FinishId[];
   result: string;
   isImageGenerating: boolean;
   imageGenerationStatus?: string;
-  imageGenerationEtaSeconds?: number;
-  imageGenerationBatchEtaSeconds?: number;
-  canGenerateOne: boolean;
-  canGenerateAll: boolean;
-  onGenerateOne: () => Promise<void> | void;
-  onGenerateAll: () => Promise<void> | void;
-  onSelectGeneratedFinish: (finish: FinishId) => void;
-  onReset: () => void;
-  onOpenGame: () => void;
+  onRestart: () => void;
 }
 
 const clamp = (value: number, min: number, max: number) =>
@@ -144,33 +130,15 @@ const getMaxDurationMonths = (amount: number): number => {
 
 const DURATION_OPTIONS = [18, 24, 30, 36, 42, 48, 60, 84, 120] as const;
 
-const FINISH_IMAGE_BY_ID: Record<string, string> = {
-  'natural-stone': '/limestone-classic.jpg',
-  smooth: '/render-neutral.jpg',
-  textured: '/limestone-textured.jpg',
-  other: '/brick-warm.jpg',
-  suggest: '/render-neutral.jpg',
-};
-
 export const ResultsPage: React.FC<ResultsPageProps> = ({
   formData,
   imagePreview,
   generatedImage,
-  generatedImagesByFinish,
   activeGeneratedFinish,
-  finishOptions,
   result,
   isImageGenerating,
   imageGenerationStatus,
-  imageGenerationEtaSeconds = 30,
-  canGenerateOne,
-  onGenerateOne,
-  canGenerateAll: _canGenerateAll,
-  onGenerateAll: _onGenerateAll,
-  imageGenerationBatchEtaSeconds: _imageGenerationBatchEtaSeconds,
-  onSelectGeneratedFinish,
-  onReset,
-  onOpenGame,
+  onRestart,
 }) => {
   const { t, locale } = useI18n();
 
@@ -178,10 +146,6 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
   const [modalImage, setModalImage] = useState<string | null>(null);
   const [modalTitle, setModalTitle] = useState<string>('');
   const [modalDescription, setModalDescription] = useState<string>('');
-
-  const [investmentView, setInvestmentView] = useState<'total' | 'financing'>(
-    'total'
-  );
 
   const formatEur = (value: number, options: Intl.NumberFormatOptions = {}) =>
     new Intl.NumberFormat(locale, {
@@ -199,15 +163,6 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
     setModalTitle(title);
     setModalDescription(description);
     setModalOpen(true);
-  };
-
-  const handleDownloadPDF = async (): Promise<void> => {
-    try {
-      await generateQuotePDF(formData, result, generatedImagesByFinish, imagePreview);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert(t('results.pdfError'));
-    }
   };
 
   const visualizationText = useMemo(() => extractVisualization(result), [result]);
@@ -293,35 +248,6 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
     [fixedEstimateAmount, loanDurationMonths]
   );
 
-  const generatedPreviewCount = useMemo(
-    () => finishOptions.filter((id) => Boolean(generatedImagesByFinish[id])).length,
-    [finishOptions, generatedImagesByFinish]
-  );
-
-  const selectedFinish = useMemo(() => {
-    const current = formData.finish ? (formData.finish as FinishId) : null;
-    if (current && finishOptions.includes(current)) return current;
-    return finishOptions[0] ?? null;
-  }, [formData.finish, finishOptions]);
-
-  const finishPreviewOptions = useMemo(
-    () =>
-      finishOptions.map((id) => {
-        const hasPreview = Boolean(generatedImagesByFinish[id]);
-        const label = t(`results.texture.options.${id}`);
-        return {
-          id,
-          label,
-          hasPreview,
-          image:
-            (hasPreview ? generatedImagesByFinish[id] : null) ??
-            FINISH_IMAGE_BY_ID[id] ??
-            '/render-neutral.jpg',
-        };
-      }),
-    [finishOptions, generatedImagesByFinish, t]
-  );
-
   return (
     <>
       <ImageModal
@@ -360,15 +286,9 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 rounded-3xl border border-[#d4a574]/30 bg-white/80 p-3 shadow-xl md:p-4">
           <div className="min-h-0 flex-1">
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
-                <div className="flex flex-col gap-3 xl:col-span-8">
+            <div className="grid grid-cols-1 gap-3">
+                <div className="flex flex-col gap-3">
                   <div className="rounded-2xl border border-[#eadfcb] bg-white shadow-sm">
-                  <div className="flex items-center justify-between gap-2 border-b border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#6B5E4F]">
-                      {t('results.preview.title')}
-                    </div>
-                  </div>
-
                   <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-2">
                     <button
                       type="button"
@@ -512,433 +432,18 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
                     </div>
                   </div>
 
-                  <div className="mt-3 inline-flex rounded-full bg-white/70 p-1 text-xs font-semibold shadow-sm">
-                    <button
-                      type="button"
-                      onClick={() => setInvestmentView('total')}
-                      className={selectableSegmentClass(
-                        investmentView === 'total',
-                        'px-3 py-1.5'
-                      )}
-                    >
-                      {t('results.investment.toggleTotal')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setInvestmentView('financing')}
-                      className={selectableSegmentClass(
-                        investmentView === 'financing',
-                        'px-3 py-1.5'
-                      )}
-                    >
+
+                  <div className="mt-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#6B5E4F]">
                       {t('results.investment.toggleFinancing')}
-                    </button>
-                  </div>
-
-                  {investmentView === 'total' ? (
-                    <>
-                      <div className="mt-4 text-4xl font-extrabold text-[#2D2A26]">
-                        {fixedEstimateLabel}
-                      </div>
-                      <div className="mt-1 text-xs text-[#6B5E4F]">
-                        {t('results.investment.totalCaption')}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="mt-4 flex flex-wrap items-baseline gap-x-2">
-                        <div className="text-4xl font-extrabold text-[#2D2A26]">
-                          {typeof installment === 'number'
-                            ? formatEur(installment ?? 0, {
-                                maximumFractionDigits: 2,
-                              })
-                            : 'ƒ?"'}
-                        </div>
-                        <div className="text-sm font-semibold text-[#6B5E4F]">
-                          {t('results.investment.installmentCaption')}
-                        </div>
-                      </div>
-
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-[#6B5E4F]">
-                        <div>
-                          <span className="font-semibold">
-                            {t('results.investment.financedAmount')}
-                          </span>{' '}
-                          {fixedEstimateLabel}
-                        </div>
-                        <div>
-                          <span className="font-semibold">
-                            {t('results.investment.duration')}
-                          </span>{' '}
-                          {loanDurationMonths} {t('common.months')}
-                        </div>
-                        <div>
-                          <span className="font-semibold">
-                            {t('results.investment.rate')}
-                          </span>{' '}
-                          {(LOAN_TAEG * 100).toFixed(2)}%
-                        </div>
-                        <div>
-                          <span className="font-semibold">
-                            {t('results.investment.calcRate')}
-                          </span>{' '}
-                          {(calcRate * 100).toFixed(2)}%
-                        </div>
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap items-center gap-3">
-                        <label
-                          className="text-xs font-semibold text-[#6B5E4F]"
-                          htmlFor="loan-duration"
-                        >
-                          {t('results.investment.durationLabel')}
-                        </label>
-                        <select
-                          id="loan-duration"
-                          value={loanDurationMonths}
-                          onChange={(e) =>
-                            setLoanDurationMonths(Number(e.target.value))
-                          }
-                          className="rounded-lg border border-[#d4a574]/40 bg-white px-3 py-2 text-sm font-semibold text-[#2D2A26] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4a574]/40"
-                        >
-                          {availableDurations.map((m) => (
-                            <option key={m} value={m}>
-                              {m}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <details className="mt-3 rounded-xl border border-[#d4a574]/30 bg-white/60 p-3">
-                        <summary className="cursor-pointer text-xs font-semibold text-[#6B5E4F]">
-                          {t('results.investment.legalMaxSummary')}
-                        </summary>
-                        <div className="mt-2">
-                          <table className="w-full table-fixed text-xs text-[#2D2A26]">
-                            <thead>
-                              <tr className="text-left text-[#6B5E4F]">
-                                <th className="pb-2 pr-4 font-semibold">
-                                  {t('results.investment.legalMax.amount')}
-                                </th>
-                                <th className="pb-2 font-semibold">
-                                  {t('results.investment.legalMax.duration')}
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {LEGAL_MAX_DURATIONS.map((row) => {
-                                const range =
-                                  row.max === Infinity
-                                    ? `${t('results.investment.legalMax.over')} ${formatEur(
-                                        row.min,
-                                        { maximumFractionDigits: 0 }
-                                      )}`
-                                    : `${formatEur(row.min, {
-                                        maximumFractionDigits: 0,
-                                      })} ƒ?" ${formatEur(row.max, {
-                                        maximumFractionDigits: 0,
-                                      })}`;
-                                return (
-                                  <tr
-                                    key={`${row.min}-${row.max}`}
-                                    className="border-t border-[#d4a574]/20"
-                                  >
-                                    <td className="py-2 pr-4 break-words">
-                                      {range}
-                                    </td>
-                                    <td className="py-2">
-                                      {row.months} {t('common.months')}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </details>
-                    </>
-                  )}
-
-                  <div className="mt-3 text-xs text-[#6B5E4F]">
-                    {t('results.investment.disclaimer')}
-                  </div>
-                </div>
-              </div>
-
-                <div className="flex flex-col gap-3 xl:col-span-4">
-                  <div className="rounded-2xl border border-[#eadfcb] bg-white p-3 shadow-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#6B5E4F]">
-                          {t('results.preview.generation.title')}
-                        </p>
-                        <p className="mt-1 text-[11px] text-[#6B5E4F]">
-                          {t('results.preview.generation.body')}
-                        </p>
-                      </div>
-                      <div className="rounded-full border border-[#eadfcb] bg-[#fdf8f2] px-3 py-1 text-[11px] font-semibold text-[#2D2A26]">
-                        {generatedPreviewCount}/{finishOptions.length}
-                      </div>
-                    </div>
-
-                    {isImageGenerating && (
-                      <div className="mt-3 rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-[#2D2A26]">
-                          <Loader2 className="h-4 w-4 animate-spin text-[#c4955e]" />
-                          <span className="truncate">
-                            {imageGenerationStatus ||
-                              t('results.preview.afterDisabled')}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={onOpenGame}
-                          className="button-press mt-2 inline-flex w-full items-center justify-center rounded-full border border-[#eadfcb] bg-white px-4 py-2 text-xs font-semibold text-[#2D2A26] shadow-sm transition hover:bg-[#fdf8f2]"
-                        >
-                          {t('common.resumeGame')}
-                        </button>
-                      </div>
-                    )}
-
-                    {!isImageGenerating && (
-                      <>
-                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                          <div className="flex flex-col gap-1">
-                            <button
-                              type="button"
-                              onClick={onGenerateOne}
-                              disabled={!imagePreview || !canGenerateOne}
-                              className={`button-press inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-xs font-semibold shadow-lg transition ${
-                                !imagePreview || !canGenerateOne
-                                  ? 'cursor-not-allowed bg-gray-200 text-gray-500'
-                                  : 'bg-[#d4a574] text-white hover:bg-[#c4955e]'
-                              }`}
-                            >
-                              {t('results.preview.generation.ctaOne', {
-                                finish: formData.finish
-                                  ? t(
-                                      `results.texture.options.${formData.finish}`
-                                    )
-                                  : '',
-                              })}
-                            </button>
-                            <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                              {t('results.preview.generation.etaOne', {
-                                seconds: imageGenerationEtaSeconds,
-                              })}
-                            </div>
-                          </div>
-
-                        </div>
-
-                        <p className="mt-3 text-[10px] text-[#6B5E4F]">
-                          {t('results.preview.generation.note')}
-                        </p>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="rounded-2xl border border-[#eadfcb] bg-white p-3 shadow-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#6B5E4F]">
-                        {t('results.texture.previewTitle')}
-                      </p>
-                    </div>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      {finishPreviewOptions.map((opt) => {
-                        const isSelected = selectedFinish === opt.id;
-                        return (
-                          <button
-                            key={opt.id}
-                            type="button"
-                            disabled={isImageGenerating}
-                            onClick={() => onSelectGeneratedFinish(opt.id)}
-                            className={selectableCardClass(
-                              isSelected,
-                              'group overflow-hidden text-left disabled:cursor-not-allowed disabled:opacity-60'
-                            )}
-                            title={
-                              isSelected
-                                ? t('common.selected')
-                                : opt.hasPreview
-                                  ? t('results.texture.previewAction')
-                                  : t('results.texture.locked')
-                            }
-                          >
-                            <SelectionMark isSelected={isSelected} />
-                            <div className="relative h-20 w-full overflow-hidden bg-gray-50">
-                              <img
-                                src={opt.image}
-                                alt={t('results.texture.optionAlt', {
-                                  label: opt.label,
-                                })}
-                                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                              />
-                              {!opt.hasPreview && (
-                                <div className="absolute inset-0 bg-white/70" />
-                              )}
-                            </div>
-                            <div className="px-2 py-1.5">
-                              <div className="truncate text-[11px] font-semibold text-[#2D2A26]">
-                                {opt.label}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <p className="mt-2 text-[11px] text-[#6B5E4F]">
-                      {t('results.texture.previewHelp')}
                     </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-[#eadfcb] bg-white p-3 shadow-sm">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#6B5E4F]">
-                      {t('results.summaryTitle')}
-                    </p>
-                    <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-[#2D2A26] sm:grid-cols-2 xl:grid-cols-1">
-                      <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                        <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                          {t('results.details.address')}
-                        </div>
-                        <div className="mt-0.5 truncate font-semibold">
-                          {formData.address || t('common.notProvided')}
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                        <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                          {t('results.details.type')}
-                        </div>
-                        <div className="mt-0.5 truncate font-semibold">
-                          {prettyFacade || t('common.notSpecified')}
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                        <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                          {t('results.details.surface')}
-                        </div>
-                        <div className="mt-0.5 truncate font-semibold">
-                          {prettySurface}
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                        <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                          {t('results.details.finish')}
-                        </div>
-                        <div className="mt-0.5 truncate font-semibold">
-                          {prettyFinish || t('common.notSpecified')}
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                        <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                          {t('results.details.timeline')}
-                        </div>
-                        <div className="mt-0.5 truncate font-semibold">
-                          {prettyTimeline || t('common.notSpecified')}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-2 text-[11px] text-[#6B5E4F]">
-                      <span className="font-semibold">
-                        {t('results.details.treatments')}
-                      </span>{' '}
-                      {prettyTreatments}
-                    </div>
-                    <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-[#2D2A26] sm:grid-cols-2 xl:grid-cols-1">
-                      <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                        <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                          {t('results.details.name')}
-                        </div>
-                        <div className="mt-0.5 truncate font-semibold">
-                          {fullName || t('common.notProvided')}
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                        <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                          {t('results.details.email')}
-                        </div>
-                        <div className="mt-0.5 truncate font-semibold">
-                          {formData.email || t('common.notProvided')}
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                        <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                          {t('results.details.phone')}
-                        </div>
-                        <div className="mt-0.5 truncate font-semibold">
-                          {prettyPhone || t('common.notProvided')}
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                        <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                          {t('results.details.callback')}
-                        </div>
-                        <div className="mt-0.5 truncate font-semibold">
-                          {callbackStatus}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            {false && (
-              <div className="h-full rounded-2xl border border-[#eadfcb] bg-gradient-to-br from-[#fdf8f2] to-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-[#c4955e]">
-                      {t('results.investment.title')}
-                    </p>
-                    <p className="mt-1 text-xs text-[#6B5E4F]">
-                      {t('results.investment.subtitle')}
-                    </p>
-                  </div>
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-md">
-                    <Euro className="h-7 w-7" style={{ color: '#D4A574' }} />
-                  </div>
-                </div>
-
-                <div className="mt-3 inline-flex rounded-full bg-white/70 p-1 text-xs font-semibold shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() => setInvestmentView('total')}
-                    className={selectableSegmentClass(
-                      investmentView === 'total',
-                      'px-3 py-1.5'
-                    )}
-                  >
-                    {t('results.investment.toggleTotal')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInvestmentView('financing')}
-                    className={selectableSegmentClass(
-                      investmentView === 'financing',
-                      'px-3 py-1.5'
-                    )}
-                  >
-                    {t('results.investment.toggleFinancing')}
-                  </button>
-                </div>
-
-                {investmentView === 'total' ? (
-                  <>
-                    <div className="mt-4 text-4xl font-extrabold text-[#2D2A26]">
-                      {fixedEstimateLabel}
-                    </div>
-                    <div className="mt-1 text-xs text-[#6B5E4F]">
-                      {t('results.investment.totalCaption')}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="mt-4 flex flex-wrap items-baseline gap-x-2">
+                    <div className="mt-3 flex flex-wrap items-baseline gap-x-2">
                       <div className="text-4xl font-extrabold text-[#2D2A26]">
                         {typeof installment === 'number'
                           ? formatEur(installment ?? 0, {
                               maximumFractionDigits: 2,
                             })
-                          : '—'}
+                          : '--'}
                       </div>
                       <div className="text-sm font-semibold text-[#6B5E4F]">
                         {t('results.investment.installmentCaption')}
@@ -1021,7 +526,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
                                     )}`
                                   : `${formatEur(row.min, {
                                       maximumFractionDigits: 0,
-                                    })} – ${formatEur(row.max, {
+                                    })} - ${formatEur(row.max, {
                                       maximumFractionDigits: 0,
                                     })}`;
                               return (
@@ -1042,38 +547,159 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
                         </table>
                       </div>
                     </details>
-                  </>
-                )}
+                  </div>
+
+                  <div className="mt-4 border-t border-[#eadfcb] pt-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#6B5E4F]">
+                      {t('results.investment.toggleTotal')}
+                    </p>
+                    <div className="mt-2 text-4xl font-extrabold text-[#2D2A26]">
+                      {fixedEstimateLabel}
+                    </div>
+                    <div className="mt-1 text-xs text-[#6B5E4F]">
+                      {t('results.investment.totalCaption')}
+                    </div>
+                  </div>
 
                 <div className="mt-3 text-xs text-[#6B5E4F]">
                   {t('results.investment.disclaimer')}
                 </div>
               </div>
-            )}
+
+              <div className="rounded-2xl border border-[#eadfcb] bg-white p-3 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#6B5E4F]">
+                  {t('results.summaryTitle')}
+                </p>
+                <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-[#2D2A26] sm:grid-cols-2 xl:grid-cols-1">
+                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
+                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
+                      {t('results.details.address')}
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold">
+                      {formData.address || t('common.notProvided')}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
+                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
+                      {t('results.details.type')}
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold">
+                      {prettyFacade || t('common.notSpecified')}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
+                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
+                      {t('results.details.surface')}
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold">
+                      {prettySurface}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
+                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
+                      {t('results.details.finish')}
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold">
+                      {prettyFinish || t('common.notSpecified')}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
+                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
+                      {t('results.details.timeline')}
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold">
+                      {prettyTimeline || t('common.notSpecified')}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2 text-[11px] text-[#6B5E4F]">
+                  <span className="font-semibold">
+                    {t('results.details.treatments')}
+                  </span>{' '}
+                  {prettyTreatments}
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-[#2D2A26] sm:grid-cols-2 xl:grid-cols-1">
+                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
+                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
+                      {t('results.details.name')}
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold">
+                      {fullName || t('common.notProvided')}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
+                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
+                      {t('results.details.email')}
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold">
+                      {formData.email || t('common.notProvided')}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
+                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
+                      {t('results.details.phone')}
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold">
+                      {prettyPhone || t('common.notProvided')}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
+                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
+                      {t('results.details.callback')}
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold">
+                      {callbackStatus}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[#eadfcb] bg-gradient-to-br from-[#fdf8f2] to-white p-4 shadow-sm">
+                <h3 className="text-sm font-bold text-[#2D2A26]">
+                    {t('results.next.title')}
+                  </h3>
+                  <div className="mt-3 grid gap-2">
+                    {[1, 2, 3].map((n) => (
+                      <div key={n} className="flex items-start gap-3">
+                        <div className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[#c4955e] text-xs font-bold text-white">
+                          {n}
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold text-[#2D2A26]">
+                            {t(`results.next.step${n}.title`)}
+                          </div>
+                          <div className="text-[11px] text-[#6B5E4F]">
+                            {t(`results.next.step${n}.body`)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
 
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
             <button
               type="button"
-              onClick={handleDownloadPDF}
-              className="button-press flex items-center justify-center space-x-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-lg hover-lift"
+              onClick={onRestart}
+              className="button-press flex items-center justify-center space-x-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl"
               style={{
-                background:
-                  'linear-gradient(135deg, #D4A574 0%, #C4955E 100%)',
+                background: 'linear-gradient(135deg, #D4A574 0%, #C4955E 100%)',
               }}
             >
-              <Download className="h-4 w-4" />
-              <span className="truncate">{t('common.downloadPdf')}</span>
+              <span className="truncate">{t('results.actions.generateOther')}</span>
             </button>
             <button
               type="button"
-              onClick={onReset}
+              onClick={onRestart}
               className="button-press hover-lift flex items-center justify-center space-x-2 rounded-xl border-2 bg-white px-4 py-3 text-sm font-semibold shadow-lg"
               style={{ borderColor: '#D4A574', color: '#2D2A26' }}
             >
-              <Send className="h-4 w-4" />
-              <span className="truncate">{t('common.newQuote')}</span>
+              <span className="truncate">{t('results.actions.backToWebsite')}</span>
             </button>
           </div>
         </div>

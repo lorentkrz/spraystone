@@ -7,6 +7,10 @@ import type { ChangeEvent } from 'react';
 // Form Data Types
 export interface FormData {
   address: string;
+  street: string;
+  streetNumber: string;
+  postalCode: string;
+  city: string;
   facadeType: FacadeType;
   condition: Condition;
   surfaceArea: string;

@@ -24,9 +24,10 @@ export const Step9Contact: React.FC<StepProps> = ({ formData, onChange }) => {
               name="firstName"
               value={formData.firstName}
               onChange={onChange}
-              placeholder={t('steps.contact.fields.firstName.placeholder')}
+              placeholder={`${t('steps.contact.fields.firstName.placeholder')} *`}
               className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-12 pr-4 text-gray-900"
               autoComplete="given-name"
+              required
             />
           </div>
 
@@ -37,9 +38,10 @@ export const Step9Contact: React.FC<StepProps> = ({ formData, onChange }) => {
               name="lastName"
               value={formData.lastName}
               onChange={onChange}
-              placeholder={t('steps.contact.fields.lastName.placeholder')}
+              placeholder={`${t('steps.contact.fields.lastName.placeholder')} *`}
               className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-12 pr-4 text-gray-900"
               autoComplete="family-name"
+              required
             />
           </div>
         </div>
@@ -51,9 +53,10 @@ export const Step9Contact: React.FC<StepProps> = ({ formData, onChange }) => {
             name="email"
             value={formData.email}
             onChange={onChange}
-            placeholder={t('steps.contact.fields.email.placeholder')}
+            placeholder={`${t('steps.contact.fields.email.placeholder')} *`}
             className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-12 pr-4 text-gray-900"
             autoComplete="email"
+            required
           />
         </div>
 
@@ -77,9 +80,10 @@ export const Step9Contact: React.FC<StepProps> = ({ formData, onChange }) => {
               name="phone"
               value={formData.phone}
               onChange={onChange}
-              placeholder={t('steps.contact.fields.phone.placeholder')}
+              placeholder={`${t('steps.contact.fields.phone.placeholder')} *`}
               className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900"
               autoComplete="tel"
+              required
             />
           </div>
         </div>

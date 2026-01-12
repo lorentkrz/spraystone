@@ -1,17 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import type { StepProps } from '@/types';
 import { useI18n } from '@/i18n';
 
 // Global flag to ensure setOptions is only called once
 let googleMapsInitialized = false;
-
-interface AddressParts {
-  street: string;
-  number: string;
-  postalCode: string;
-  city: string;
-}
 
 interface GooglePlacePrediction {
   place_id?: string;
@@ -28,12 +21,12 @@ interface GooglePlacePrediction {
 
 export const Step1Address: React.FC<StepProps> = ({ formData, onChange }) => {
   const { t } = useI18n();
-  const [addressParts, setAddressParts] = useState<AddressParts>({
-    street: '',
-    number: '',
-    postalCode: '',
-    city: ''
-  });
+  const addressParts = {
+    street: formData.street || '',
+    number: formData.streetNumber || '',
+    postalCode: formData.postalCode || '',
+    city: formData.city || ''
+  };
   const [suggestions, setSuggestions] = useState<GooglePlacePrediction[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   // const sessionTokenRef = useRef<any>(null); // Reserved for future use
@@ -127,12 +120,31 @@ export const Step1Address: React.FC<StepProps> = ({ formData, onChange }) => {
     }
   }, []);
 
-  const handlePartChange = (field: keyof AddressParts, value: string): void => {
-    const updated = { ...addressParts, [field]: value };
-    setAddressParts(updated);
-    // Combine all parts into address
-    const fullAddress = `${updated.street} ${updated.number}, ${updated.postalCode} ${updated.city}`.trim();
-    onChange({ target: { name: 'address', value: fullAddress } } as React.ChangeEvent<HTMLInputElement>);
+  const handlePartChange = (
+    field: 'street' | 'number' | 'postalCode' | 'city',
+    value: string
+  ): void => {
+    const nameMap = {
+      street: 'street',
+      number: 'streetNumber',
+      postalCode: 'postalCode',
+      city: 'city'
+    } as const;
+    onChange({
+      target: { name: nameMap[field], value }
+    } as React.ChangeEvent<HTMLInputElement>);
+  };
+
+  const applyAddressParts = (parts: {
+    street: string;
+    number: string;
+    postalCode: string;
+    city: string;
+  }) => {
+    handlePartChange('street', parts.street);
+    handlePartChange('number', parts.number);
+    handlePartChange('postalCode', parts.postalCode);
+    handlePartChange('city', parts.city);
   };
 
   const handleAddressInput = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
@@ -272,8 +284,7 @@ export const Step1Address: React.FC<StepProps> = ({ formData, onChange }) => {
       }
     }
 
-    setAddressParts({ street, number, postalCode, city });
-    onChange({ target: { name: 'address', value: formatted } } as React.ChangeEvent<HTMLInputElement>);
+    applyAddressParts({ street, number, postalCode, city });
 
     if (mapInstance.current && place.location) {
       // Clear previous marker
@@ -333,8 +344,7 @@ export const Step1Address: React.FC<StepProps> = ({ formData, onChange }) => {
       }
     }
 
-    setAddressParts({ street, number, postalCode, city });
-    onChange({ target: { name: 'address', value: formatted } } as React.ChangeEvent<HTMLInputElement>);
+    applyAddressParts({ street, number, postalCode, city });
 
     if (mapInstance.current && place.geometry && place.geometry.location) {
       // Clear previous marker
@@ -379,8 +389,9 @@ export const Step1Address: React.FC<StepProps> = ({ formData, onChange }) => {
               onChange={handleAddressInput}
               onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-              placeholder={t('steps.address.placeholder')}
+              placeholder={`${t('steps.address.placeholder')} *`}
               className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-12 pr-4 text-gray-900"
+              required
             />
 
             {/* Autocomplete Suggestions */}
@@ -433,29 +444,33 @@ export const Step1Address: React.FC<StepProps> = ({ formData, onChange }) => {
               type="text"
               value={addressParts.street}
               onChange={(e) => handlePartChange('street', e.target.value)}
-              placeholder={t('steps.address.street')}
+              placeholder={`${t('steps.address.street')} *`}
               className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 sm:col-span-2"
+              required
             />
             <input
               type="text"
               value={addressParts.number}
               onChange={(e) => handlePartChange('number', e.target.value)}
-              placeholder={t('steps.address.number')}
+              placeholder={`${t('steps.address.number')} *`}
               className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900"
+              required
             />
             <input
               type="text"
               value={addressParts.postalCode}
               onChange={(e) => handlePartChange('postalCode', e.target.value)}
-              placeholder={t('steps.address.postalCode')}
+              placeholder={`${t('steps.address.postalCode')} *`}
               className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900"
+              required
             />
             <input
               type="text"
               value={addressParts.city}
               onChange={(e) => handlePartChange('city', e.target.value)}
-              placeholder={t('steps.address.city')}
+              placeholder={`${t('steps.address.city')} *`}
               className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 sm:col-span-2"
+              required
             />
           </div>
         </div>

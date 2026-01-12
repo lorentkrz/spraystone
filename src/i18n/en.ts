@@ -209,7 +209,7 @@ export const en = {
     contact: {
       name: 'Contact',
       title: 'How can we contact you?',
-      subtitle: 'Provide at least one contact method so we can reach you.',
+      subtitle: 'All fields are required so we can reach you.',
       fields: {
         firstName: { placeholder: 'First name' },
         lastName: { placeholder: 'Last name' },
@@ -254,6 +254,17 @@ export const en = {
         body: 'If you want, you can generate another finish and compare.',
         cta: 'Show finishes',
       },
+    },
+    generationPopup: {
+      title: 'Generating your preview',
+      body:
+        'The image is being generated. Please wait for the preview and estimate to appear. Thank you.',
+      timerLabel: 'Estimated time remaining',
+      status: 'Rendering your Spraystone preview',
+    },
+    actions: {
+      generateOther: 'Generate other finish',
+      backToWebsite: 'Go back to website',
     },
     summaryTitle: 'Summary',
     pdfError: 'Error generating PDF. Please try again.',
@@ -332,7 +343,7 @@ export const en = {
       optionAlt: '{label} generated preview',
       help: 'Examples only (no extra generation). Ask our team if you want additional previews.',
       previewHelp:
-        'Tap a finish to select it. Generated finishes open instantly; other finishes can be generated above.',
+        'Select a finish to switch the preview. Use Generate other finish to create a new version.',
       locked: 'Select to generate',
       options: {
         'natural-stone': 'Natural stone',
@@ -421,6 +432,7 @@ export const en = {
       timeline: 'Please select a desired timeline',
       phoneForCall: 'Please enter a valid phone number to request a call',
       emailOrPhone: 'Please provide a valid email address or phone number',
+      contactRequired: 'Please complete all required contact fields',
       complete: 'Please complete this step',
     },
   },

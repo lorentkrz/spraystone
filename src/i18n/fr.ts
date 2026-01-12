@@ -210,8 +210,7 @@ export const fr = {
     contact: {
       name: 'Contact',
       title: 'Comment pouvons-nous vous contacter ?',
-      subtitle:
-        'Indiquez au moins un moyen de contact afin que nous puissions vous joindre.',
+      subtitle: 'Tous les champs sont requis afin que nous puissions vous contacter.',
       fields: {
         firstName: { placeholder: 'Prénom' },
         lastName: { placeholder: 'Nom' },
@@ -256,6 +255,17 @@ export const fr = {
         body: 'Si vous le souhaitez, vous pouvez comparer avec une autre finition.',
         cta: 'Voir les finitions',
       },
+    },
+    generationPopup: {
+      title: 'Generation de votre apercu',
+      body:
+        'L\'image est en cours de generation. Veuillez patienter pour l\'apercu et l\'estimation. Merci.',
+      timerLabel: 'Temps estime restant',
+      status: 'Rendu de votre apercu Spraystone',
+    },
+    actions: {
+      generateOther: 'Generer une autre finition',
+      backToWebsite: 'Retour au site web',
     },
     summaryTitle: 'Résumé',
     pdfError: 'Erreur lors de la génération du PDF. Veuillez réessayer.',
@@ -330,7 +340,7 @@ export const fr = {
       previewTitle: 'Choisir une finition',
       previewAction: 'Voir cet echantillon',
       previewHelp:
-        'Touchez une finition pour la selectionner. Les apercus generes s\'ouvrent tout de suite; les autres peuvent etre generes ci-dessus.',
+        'Selectionnez une finition pour changer l\'apercu. Utilisez Generer une autre finition pour creer une nouvelle version.',
       locked: 'Selectionner pour generer',
       title: 'Choisir une autre texture',
       generateTitle: 'Générer cette texture',
@@ -430,13 +440,14 @@ export const fr = {
         'Veuillez saisir un numéro de téléphone valide pour demander un appel',
       emailOrPhone:
         'Veuillez fournir une adresse e-mail valide ou un numéro de téléphone',
-      complete: 'Veuillez compléter cette étape',
+      contactRequired: 'Veuillez completer tous les champs de contact requis',
+      complete: 'Veuillez complÇ¸ter cette Ç¸tape',
     },
   },
   progress: {
     preparingImage: 'Préparation de l’image…',
     generatingMock: 'Génération d’une analyse de démonstration…',
-    complete: 'Terminé !',
+    complete: 'TerminÇ¸ !',
     chatNotConfigured: 'Chat non configuré, estimation rapide…',
     chatKeyMissing: 'Clé chat manquante, estimation rapide…',
     analyzingFacadeData: 'Analyse des données de façade…',

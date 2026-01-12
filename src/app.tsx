@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { StepIndicator } from "@/components/step-indicator";
@@ -12,14 +12,13 @@ import { Step7Treatments } from "@/components/step-7-treatments";
 import { Step8Timeline } from "@/components/step-8-timeline";
 import { Step9Contact } from "@/components/step-9-contact";
 import { ResultsPage } from "@/components/results-page";
-import { GameModal } from "@/components/game-modal";
+import { GenerationModal } from "@/components/generation-modal";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useI18n } from "@/i18n";
 import type { FormData, PreviewFinish, RetryOptions, Treatment } from "@/types";
 import { cropDataUrl, letterboxToFile } from "@/utils/image-processing";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
-const LEAD_GATING_MODE = import.meta.env.VITE_LEAD_GATING_MODE || "before";
 const DEV_MODE = import.meta.env.VITE_DEV_MODE === "false";
 const IMAGE_PROVIDER = import.meta.env.VITE_IMAGE_PROVIDER || "proxy-openai";
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || "";
@@ -37,8 +36,10 @@ const AZURE_CHAT_COMPLETIONS_ENDPOINT =
 const PROXY_IMAGE_ENDPOINT =
   import.meta.env.VITE_PROXY_IMAGE_ENDPOINT ||
   "http://localhost:8787/api/apply-spraystone";
+const CRM_PUBLIC_ENDPOINT =
+  import.meta.env.VITE_CRM_PUBLIC_ENDPOINT || "https://spraystone-api.azurewebsites.net";
 const IMAGE_GENERATION_ETA_SECONDS = Number(
-  import.meta.env.VITE_IMAGE_GENERATION_ETA_SECONDS || 30
+  import.meta.env.VITE_IMAGE_GENERATION_ETA_SECONDS || 40
 );
 type ImageGenerationSize = "1024x1024" | "1024x1536" | "1536x1024" | "auto";
 const IMAGE_GENERATION_SIZE = ((): ImageGenerationSize => {
@@ -67,8 +68,6 @@ const normalizeImageSize = (
 };
 const IMAGE_GENERATION_SIZE_FOR_API = normalizeImageSize(IMAGE_GENERATION_SIZE);
 
-const ENABLE_BATCH_IMAGE_GENERATION =
-  import.meta.env.VITE_ENABLE_BATCH_IMAGE_GENERATION !== "false";
 const GENERATION_UPLOAD_MIME_TYPE = "image/jpeg";
 const GENERATION_UPLOAD_QUALITY = 0.86;
 
@@ -86,6 +85,26 @@ const isPreviewFinish = (value: string): value is PreviewFinish =>
   (RESULT_FINISHES as readonly string[]).includes(value);
 
 const DEFAULT_PHONE_PREFIX = "+32";
+const INITIAL_FORM_DATA: FormData = {
+  address: "",
+  street: "",
+  streetNumber: "",
+  postalCode: "",
+  city: "",
+  facadeType: "",
+  condition: "",
+  surfaceArea: "",
+  finish: RESULT_FINISHES[0],
+  previewFinishes: [],
+  treatments: [],
+  timeline: "",
+  firstName: "",
+  lastName: "",
+  email: "",
+  phonePrefix: DEFAULT_PHONE_PREFIX,
+  phone: "",
+  callDuringDay: false,
+};
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 // const GAME_BEFORE_IMAGE = "/game-before.jpg";
 // const GAME_AFTER_IMAGE = "/game-after.jpg";
@@ -132,24 +151,17 @@ const TREATMENT_LABELS: Record<string, string> = {
   none: "No additional treatments",
   unknown: "To be decided with an expert",
 };
+
+const CRM_CULTURE_BY_LANG = {
+  en: "en-GB",
+  fr: "fr-FR",
+  nl: "nl-NL",
+} as const;
 function App() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
-    address: "",
-    facadeType: "",
-    condition: "",
-    surfaceArea: "",
-    finish: RESULT_FINISHES[0],
-    previewFinishes: [],
-    treatments: [],
-    timeline: "",
-    firstName: "",
-    lastName: "",
-    email: "",
-    phonePrefix: DEFAULT_PHONE_PREFIX,
-    phone: "",
-    callDuringDay: false,
+    ...INITIAL_FORM_DATA,
   });
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -161,11 +173,13 @@ function App() {
   const [loadingProgress, setLoadingProgress] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hasCreatedOpportunity, setHasCreatedOpportunity] = useState(false);
+  const [isSubmittingOpportunity, setIsSubmittingOpportunity] = useState(false);
   const [isImageGenerating, setIsImageGenerating] = useState(false);
-  const [isGameVisible, setIsGameVisible] = useState(false);
-  const [gameProgress, setGameProgress] = useState(0);
-  const [gameSessionId, setGameSessionId] = useState(0);
-  const [forceGamePreview, setForceGamePreview] = useState(false);
+  const generationTotalSeconds = Math.max(1, IMAGE_GENERATION_ETA_SECONDS || 40);
+  const [generationSecondsRemaining, setGenerationSecondsRemaining] = useState(
+    generationTotalSeconds
+  );
   const [transitionDirection, setTransitionDirection] = useState<
     "forward" | "backward"
   >("forward");
@@ -183,25 +197,17 @@ function App() {
   const getReferencePath = (finish: string) =>
     SPRAYSTONE_REFERENCE_MAP[finish] || DEFAULT_REFERENCE_TEXTURE;
 
-  const updateGameProgress = (value: number) => {
-    setGameProgress((prev) => (value > prev ? value : prev));
-  };
-
-  // const startGamePreview = () => {
-  //   setForceGamePreview(true);
-  //   setIsGameVisible(true);
-  //   setGameProgress(0);
-  //   setGameSessionId((prev) => prev + 1);
-  // };
-
-  const handleGameClose = () => {
-    setIsGameVisible(false);
-    setForceGamePreview(false);
-  };
-
-  const handleResumeGame = () => {
-    setIsGameVisible(true);
-  };
+  useEffect(() => {
+    if (!isImageGenerating) return;
+    setGenerationSecondsRemaining(generationTotalSeconds);
+    const start = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - start) / 1000);
+      const remaining = Math.max(generationTotalSeconds - elapsed, 0);
+      setGenerationSecondsRemaining(remaining);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [generationTotalSeconds, isImageGenerating]);
 
   const getMimeFromDataUrl = (dataUrl?: string | null) => {
     if (!dataUrl) return "image/jpeg";
@@ -215,6 +221,155 @@ function App() {
       byteNumbers[i] = byteCharacters.charCodeAt(i);
     }
     return new Blob([new Uint8Array(byteNumbers)], { type: mimeType });
+  };
+
+  const dataUrlToBlob = (dataUrl: string): Blob => {
+    const base64 = dataUrl.split(",")[1] || "";
+    const mimeType = getMimeFromDataUrl(dataUrl);
+    return base64ToBlob(base64, mimeType);
+  };
+
+  const getOpportunityCulture = () =>
+    CRM_CULTURE_BY_LANG[lang as keyof typeof CRM_CULTURE_BY_LANG] || "en-GB";
+
+  const buildAddressFromParts = (data: Pick<FormData, "street" | "streetNumber" | "postalCode" | "city">) => {
+    const streetLine = [data.street, data.streetNumber]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    const cityLine = [data.postalCode, data.city]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    return [streetLine, cityLine].filter(Boolean).join(", ").trim();
+  };
+
+  const truncateText = (value: string, maxLength: number) =>
+    value.length > maxLength ? value.slice(0, maxLength) : value;
+
+  const buildOpportunityTitle = () => {
+    const name = [formData.firstName, formData.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    if (name) return `Spraystone Simulator - ${name}`;
+    const addressLine = buildAddressFromParts(formData);
+    if (addressLine) return `Spraystone Simulator - ${addressLine}`;
+    if (formData.address) return `Spraystone Simulator - ${formData.address}`;
+    return "Spraystone Simulator Lead";
+  };
+
+  const buildOpportunityDescription = () => {
+    const facadeLabel = formData.facadeType
+      ? t(`steps.facadeType.options.${formData.facadeType}.label`)
+      : "";
+    const conditionLabel = formData.condition
+      ? t(`steps.condition.options.${formData.condition}`)
+      : "";
+    const finishLabel = formData.finish
+      ? t(`steps.finish.options.${formData.finish}.title`)
+      : "";
+    const timelineLabel = formData.timeline
+      ? t(`steps.timeline.options.${formData.timeline}`)
+      : "";
+    const treatmentsLabel = formData.treatments?.length
+      ? formData.treatments
+          .map((item) => t(`steps.treatments.options.${item}.title`))
+          .join(", ")
+      : t("common.none");
+    const callbackLabel = formData.callDuringDay
+      ? t("pdf.callback.requested")
+      : t("pdf.callback.notRequested");
+    const fullName = [formData.firstName, formData.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    const phone = [formData.phonePrefix, formData.phone]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    const addressLine = buildAddressFromParts(formData) || formData.address;
+
+    const lines = [
+      "Spraystone Simulator Lead",
+      addressLine ? `Address: ${addressLine}` : null,
+      facadeLabel ? `Facade type: ${facadeLabel}` : null,
+      conditionLabel ? `Condition: ${conditionLabel}` : null,
+      formData.surfaceArea ? `Surface area: ${formData.surfaceArea}` : null,
+      finishLabel ? `Finish: ${finishLabel}` : null,
+      treatmentsLabel ? `Treatments: ${treatmentsLabel}` : null,
+      timelineLabel ? `Timeline: ${timelineLabel}` : null,
+      fullName ? `Name: ${fullName}` : null,
+      formData.email ? `Email: ${formData.email}` : null,
+      phone ? `Phone: ${phone}` : null,
+      `Callback: ${callbackLabel}`,
+    ];
+
+    return lines.filter(Boolean).join("\n");
+  };
+
+  const buildOpportunityQuery = () => {
+    const params = new URLSearchParams();
+    const title = truncateText(buildOpportunityTitle(), 256);
+    const description = truncateText(buildOpportunityDescription(), 1024);
+    params.set("title", title);
+    params.set("requestdescription", description);
+    params.set("contact.islegalentity", "false");
+    if (formData.firstName) params.set("contact.firstname", formData.firstName);
+    if (formData.lastName) params.set("contact.lastname", formData.lastName);
+    if (formData.email) params.set("contact.email", formData.email);
+    const phone = [formData.phonePrefix, formData.phone]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    if (phone) params.set("contact.phone", phone);
+    const streetLine = [formData.street, formData.streetNumber]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    if (streetLine) params.set("contact.street", streetLine);
+    if (formData.postalCode.trim())
+      params.set("contact.postalcode", formData.postalCode.trim());
+    if (formData.city.trim()) params.set("contact.city", formData.city.trim());
+    params.set("contact.businessname", "");
+    params.set("contact.vatnumber", "");
+    return params;
+  };
+
+  const submitOpportunity = async (generatedImageDataUrl: string) => {
+    if (hasCreatedOpportunity || isSubmittingOpportunity) return;
+    if (!uploadedImage) return;
+    if (!generatedImageDataUrl) return;
+
+    setIsSubmittingOpportunity(true);
+    try {
+      const culture = getOpportunityCulture();
+      const query = buildOpportunityQuery();
+      const baseUrl = CRM_PUBLIC_ENDPOINT.replace(/\/+$/, "");
+      const url = `${baseUrl}/api/${culture}/opportunities/public?${query.toString()}`;
+      const form = new FormData();
+      form.append(
+        "GeneratedImages",
+        uploadedImage,
+        uploadedImage.name || "facade-upload.jpg"
+      );
+      const generatedBlob = dataUrlToBlob(generatedImageDataUrl);
+      form.append("GeneratedImages", generatedBlob, "spraystone-preview.jpg");
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: form,
+      });
+      if (!response.ok) {
+        throw new Error(`CRM ${response.status}: ${await response.text()}`);
+      }
+      setHasCreatedOpportunity(true);
+    } catch (err) {
+      console.error("Failed to submit CRM opportunity", err);
+    } finally {
+      setIsSubmittingOpportunity(false);
+    }
   };
 
   const fetchReferenceDataUrl = async (
@@ -248,6 +403,22 @@ function App() {
     setError(null);
     setFormData((prev) => {
       const next = { ...prev, [target.name]: value } as FormData;
+
+      if (target.name === "address") {
+        next.street = "";
+        next.streetNumber = "";
+        next.postalCode = "";
+        next.city = "";
+      }
+
+      if (
+        target.name === "street" ||
+        target.name === "streetNumber" ||
+        target.name === "postalCode" ||
+        target.name === "city"
+      ) {
+        next.address = buildAddressFromParts(next);
+      }
 
       if (
         target.name === "finish" &&
@@ -585,108 +756,11 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
     return { uploadForGeneration: prepared.file, cropRect: prepared.crop };
   };
 
-  const generateBatchImagePrompt = (finishes: FinishId[]) => {
-    const finishMap: Record<string, string> = {
-      "natural-stone":
-        "Belgian limestone inspired Spraystone blocks with soft chiseled edges, pale silver-grey palette, matte mineral texture, and subtle aggregate sparkle",
-      smooth:
-        "Modern smooth render with micro-texture, even tone, delicate sheen, and razor-sharp transitions around openings",
-      textured:
-        "Decorative mineral coating with layered depth, gentle relief, highlighted shadows, and artisanal trowel marks",
-      suggest:
-        "Premium Spraystone standard set: neutral stone blend with light amber undertones and authentic joint patterning",
-      other:
-        "Custom Spraystone hybrid with warm brick / masonry cues, terracotta-beige undertones, subtle joint lines, and a crisp mineral texture",
-    };
-
-    const referenceLines = [
-      "- Image A: user-uploaded facade (base image to edit)",
-      ...finishes.map((finish, idx) => {
-        const letter = String.fromCharCode("B".charCodeAt(0) + idx);
-        const label =
-          FINISH_LABELS[finish as keyof typeof FINISH_LABELS] ||
-          FINISH_LABELS["natural-stone"];
-        return `- Image ${letter}: reference texture for ${finish} (${label})`;
-      }),
-    ].join("\n");
-
-    const variations = finishes
-      .map((finish, idx) => {
-        const letter = String.fromCharCode("B".charCodeAt(0) + idx);
-        const finishLabel =
-          FINISH_LABELS[finish as keyof typeof FINISH_LABELS] ||
-          FINISH_LABELS["natural-stone"];
-        const finishDescription = finishMap[finish] || finishMap["natural-stone"];
-        const selectionJson = JSON.stringify(getSelectionContext({ finish }));
-        const scaleNote =
-          finish === "other"
-            ? "If a brick/masonry pattern is used, keep a realistic brick scale (~ 21 x 6.5 cm) with consistent mortar joints."
-            : "Block scale ~ 25 x 8 cm with tight joints, deep mortar lines, and natural variation around reveals.";
-
-        return [
-          `${idx + 1}) Finish: ${finish} (${finishLabel})`,
-          `Reference: Image ${letter} (finish texture)`,
-          `Target look: ${finishLabel} - ${finishDescription}.`,
-          scaleNote,
-          `Selection context JSON: ${selectionJson}`,
-        ].join("\n");
-      })
-      .join("\n\n");
-
-    const constraintSection = [
-      "Preserve the full framing of Image A: no crop, zoom, rotate, or change in aspect ratio.",
-      "Preserve all architecture, proportions, rooflines, windows, doors, trims, railings, and surroundings exactly as in Image A.",
-      "Preserve all architectural geometry, framing, and fenestration 1:1 from Image A.",
-      "Replace only the exterior wall surfaces (brick, render, plaster, painted areas) with the Spraystone material.",
-      "Do not modify window frames, glass reflections, landscaping, or sky.",
-      "Do not add or remove people, vehicles, plants, furniture, or any new scene elements.",
-      "Maintain camera angle, focal length, and perspective identical to Image A.",
-      "Lighting must remain natural daylight with soft shadows and no HDR bloom.",
-      "Keep fine details (mortar lines, sills, joints, edges, stains) crisp and physically plausible-avoid plastic smoothing.",
-      "Ensure texture scale is consistent and shading is physically plausible.",
-      "Final output must read as a real renovation photo (photoreal), not an illustration or 3D render.",
-    ]
-      .map((line) => `- ${line}`)
-      .join("\n");
-
-    return [
-      "TASK:",
-      `Generate ${finishes.length} separate edited outputs of Image A (n=${finishes.length}).`,
-      "Each output must apply a different Spraystone finish using the corresponding reference texture image.",
-      "",
-      "MATERIAL REFERENCES:",
-      referenceLines,
-      "",
-      "VARIATIONS (output order):",
-      variations,
-      "",
-      "CONSTRAINTS:",
-      constraintSection,
-      "",
-      "OUTPUT:",
-      `Return ${finishes.length} images in the exact order listed above.`,
-    ].join("\n");
-  };
-
-  const createProgressReporter = (options?: {
-    prefix?: string;
-    segment?: { index: number; total: number };
-  }) => {
+  const createProgressReporter = (options?: { prefix?: string }) => {
     return (message: string, progressHint?: number) => {
-      const labeled = options?.prefix ? `${options.prefix} — ${message}` : message;
+      void progressHint;
+      const labeled = options?.prefix ? `${options.prefix} - ${message}` : message;
       setLoadingProgress(labeled);
-      if (typeof progressHint !== "number") return;
-
-      if (options?.segment) {
-        const { index, total } = options.segment;
-        const base = (index / total) * 100;
-        const span = 100 / total;
-        const mapped = base + (progressHint * span) / 100;
-        updateGameProgress(Math.round(mapped));
-        return;
-      }
-
-      updateGameProgress(progressHint);
     };
   };
 
@@ -997,30 +1071,35 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
   };
 
   const startImageGenerationSession = () => {
-    setGameProgress(0);
-    setGameSessionId((prev) => prev + 1);
     setIsImageGenerating(true);
-    setIsGameVisible(false);
-    updateGameProgress(8);
+    setLoadingProgress(t("results.generationPopup.status"));
+    setGenerationSecondsRemaining(generationTotalSeconds);
   };
 
   const endImageGenerationSession = () => {
-    updateGameProgress(100);
     setIsImageGenerating(false);
-    setTimeout(() => {
-      handleGameClose();
-    }, 800);
+    setGenerationSecondsRemaining(0);
     setLoadingProgress("");
+  };
+
+  const getNextFinishToGenerate = (): FinishId | null => {
+    const preferred =
+      formData.finish &&
+      isPreviewFinish(formData.finish) &&
+      !generatedImagesByFinish[formData.finish]
+        ? (formData.finish as FinishId)
+        : null;
+    if (preferred) return preferred;
+    const fallback = RESULT_FINISHES.find(
+      (finish) => !generatedImagesByFinish[finish]
+    );
+    return fallback ?? null;
   };
 
   const handleGenerateOneFinish = async () => {
     if (isImageGenerating) return;
-    if (!formData.finish) return;
-    const finish = formData.finish as FinishId;
-    if (generatedImagesByFinish[finish]) {
-      setActiveGeneratedFinish(finish);
-      return;
-    }
+    const finish = getNextFinishToGenerate();
+    if (!finish) return;
 
     setError(null);
     startImageGenerationSession();
@@ -1034,6 +1113,7 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
       }
       setGeneratedImagesByFinish((prev) => ({ ...prev, [finish]: output }));
       setActiveGeneratedFinish(finish);
+      void submitOpportunity(output);
     } catch (err) {
       handleImageGenerationError(err);
     } finally {
@@ -1041,149 +1121,6 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
     }
   };
 
-  const handleGenerateAllFinishes = async () => {
-    const finishesToGenerate = formData.previewFinishes?.length
-      ? formData.previewFinishes
-      : [...RESULT_FINISHES];
-    const missingFinishes = finishesToGenerate.filter(
-      (finish) => !generatedImagesByFinish[finish]
-    );
-    const hasAllGenerated = finishesToGenerate.every((finish) =>
-      Boolean(generatedImagesByFinish[finish])
-    );
-    if (isImageGenerating || hasAllGenerated) return;
-    if (!finishesToGenerate.length) return;
-
-    setError(null);
-    startImageGenerationSession();
-    try {
-      const prepared = await prepareUploadForGeneration();
-      const total = finishesToGenerate.length;
-      const nextImages: GeneratedImagesByFinish = { ...generatedImagesByFinish };
-
-      if (
-        IMAGE_PROVIDER === "proxy-openai" &&
-        ENABLE_BATCH_IMAGE_GENERATION &&
-        missingFinishes.length > 1
-      ) {
-        const reportProgress = createProgressReporter({
-          prefix: t("results.preview.generation.generatingTitle"),
-        });
-
-        try {
-          reportProgress(t("progress.image.lockingReference"), 18);
-          const materialRefs = await Promise.all(
-            missingFinishes.map(async (finish) => {
-              const dataUrl = await fetchReferenceDataUrl(finish);
-              if (!dataUrl) return null;
-              return {
-                base64: dataUrl.split(",")[1],
-                mimeType: getMimeFromDataUrl(dataUrl),
-              };
-            })
-          );
-
-          if (materialRefs.some((ref) => !ref)) {
-            throw new Error("missing_reference");
-          }
-
-          const base64 = await fileToBase64NoPrefix(prepared.uploadForGeneration);
-          const batchPrompt = generateBatchImagePrompt(missingFinishes);
-
-          reportProgress(t("progress.image.sendingReferences"), 62);
-          const resp = await withRetry(
-            async () => {
-              const response = await fetch(PROXY_IMAGE_ENDPOINT, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  imageBase64: base64,
-                  imageMimeType: prepared.uploadForGeneration.type,
-                  prompt: batchPrompt,
-                  size: IMAGE_GENERATION_SIZE_FOR_API,
-                  finishIds: missingFinishes,
-                  materialReferences: materialRefs,
-                }),
-              });
-              if (!response.ok) {
-                throw new Error(`Proxy ${response.status}: ${await response.text()}`);
-              }
-              return response.json();
-            },
-            {
-              retries: 2,
-              baseDelayMs: 1200,
-              onRetry: (attempt, total) =>
-                reportProgress(
-                  t("progress.image.artisansRetry", { attempt, total }),
-                  72
-                ),
-            }
-          );
-
-          const outputsByFinish = resp?.outputsByFinish || null;
-          if (!outputsByFinish || typeof outputsByFinish !== "object") {
-            throw new Error("missing_batch_outputs");
-          }
-
-          reportProgress(t("progress.image.assemblingBrief"), 84);
-          for (const finish of missingFinishes) {
-            const b64 = outputsByFinish[finish];
-            if (!b64) continue;
-            const raw = `data:image/png;base64,${b64}`;
-            try {
-              nextImages[finish] = await cropDataUrl(raw, prepared.cropRect);
-            } catch {
-              nextImages[finish] = raw;
-            }
-          }
-        } catch (err) {
-          console.warn("Batch finish generation failed; falling back to per-finish.", err);
-        }
-      }
-
-      for (let i = 0; i < total; i++) {
-        const finish = finishesToGenerate[i];
-        if (nextImages[finish]) continue;
-        const finishLabel = t(`results.texture.options.${finish}`);
-        const reportProgress = createProgressReporter({
-          prefix: `${finishLabel} (${i + 1}/${total})`,
-          segment: { index: i, total },
-        });
-        const output = await generateImageForFinish(finish, prepared, reportProgress);
-        if (!output) {
-          throw new Error("image_generation_failed");
-        }
-        nextImages[finish] = output;
-      }
-
-      setGeneratedImagesByFinish(nextImages);
-      const preferred = isPreviewFinish(formData.finish)
-        ? (formData.finish as FinishId)
-        : null;
-      const nextActive =
-        (preferred && nextImages[preferred] ? preferred : null) ||
-        finishesToGenerate.find((finish) => Boolean(nextImages[finish])) ||
-        null;
-      setActiveGeneratedFinish(nextActive);
-    } catch (err) {
-      handleImageGenerationError(err);
-    } finally {
-      endImageGenerationSession();
-    }
-  };
-
-  const handleSelectGeneratedFinish = (finish: FinishId) => {
-    setError(null);
-    setFormData((prev) => ({
-      ...prev,
-      finish,
-      previewFinishes: isPreviewFinish(finish) ? [finish] : [],
-    }));
-    if (generatedImagesByFinish[finish]) {
-      setActiveGeneratedFinish(finish);
-    }
-  };
   const generateMockAnalysis = () => {
     const surface = parseSurfaceAreaAverage(formData.surfaceArea) || 100;
     const lowPrice = Math.round(surface * 80);
@@ -1244,52 +1181,43 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
 
   const isValidPhone = (phone: string) => normalizePhone(phone).length >= 8;
 
-  const isValidAddress = (address: string) => address.trim().length >= 5;
+  const isValidAddress = (data: FormData) =>
+    data.street.trim().length >= 2 &&
+    data.streetNumber.trim().length >= 1 &&
+    data.postalCode.trim().length >= 3 &&
+    data.city.trim().length >= 2;
+  const hasRequiredContactFields = (data: FormData) =>
+    data.firstName.trim().length > 0 &&
+    data.lastName.trim().length > 0 &&
+    data.email.trim().length > 0 &&
+    normalizePhone(data.phone).length > 0;
   const handleSubmit = async () => {
     if (!uploadedImage) {
       setError(t("errors.missingFacadeImage"));
       return;
     }
-    if (!isValidAddress(formData.address)) {
+    if (!isValidAddress(formData)) {
       setError(t("errors.invalidAddress"));
       return;
     }
 
-    const hasEmail = formData.email.trim() !== "";
-    const hasPhone = normalizePhone(formData.phone).length > 0;
-    const needsLead = LEAD_GATING_MODE === "before";
-
-    if (formData.callDuringDay && !isValidPhone(formData.phone)) {
-      setError(t("errors.invalidPhoneForCall"));
+    if (!hasRequiredContactFields(formData)) {
+      setError(t("errors.step.contactRequired"));
       return;
     }
-
-    if (needsLead) {
-      if (!hasEmail && !hasPhone) {
-        setError(t("errors.provideContactMethod"));
-        return;
-      }
-      if (hasEmail && !isValidEmail(formData.email)) {
-        setError(t("errors.invalidEmail"));
-        return;
-      }
-      if (hasPhone && !isValidPhone(formData.phone)) {
-        setError(t("errors.invalidPhone"));
-        return;
-      }
-    } else {
-      if (hasEmail && !isValidEmail(formData.email)) {
-        setError(t("errors.invalidEmail"));
-        return;
-      }
-      if (hasPhone && !isValidPhone(formData.phone)) {
-        setError(t("errors.invalidPhone"));
-        return;
-      }
+    if (!isValidEmail(formData.email)) {
+      setError(t("errors.invalidEmail"));
+      return;
+    }
+    if (!isValidPhone(formData.phone)) {
+      setError(t("errors.invalidPhone"));
+      return;
     }
 
     setLoading(true);
     setError(null);
+    setHasCreatedOpportunity(false);
+    setIsSubmittingOpportunity(false);
     setLoadingProgress(t("progress.preparingImage"));
     setGeneratedImagesByFinish({});
     setActiveGeneratedFinish(
@@ -1299,83 +1227,29 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
     );
 
     try {
+      let text = "";
       if (DEV_MODE) {
         setLoadingProgress(t("progress.generatingMock"));
         await new Promise((resolve) => setTimeout(resolve, 1200));
-        setResult(generateMockAnalysis());
-        setLoadingProgress(t("progress.complete"));
-        return;
-      }
+        text = generateMockAnalysis();
+      } else {
+        const textPrompt = generatePrompt();
 
-      const textPrompt = generatePrompt();
-      let text = "";
-
-      if (TEXT_PROVIDER === "azure-openai") {
-        if (!AZURE_CHAT_COMPLETIONS_ENDPOINT || !AZURE_OPENAI_API_KEY) {
-          setLoadingProgress(t("progress.chatNotConfigured"));
-          text = generateMockAnalysis();
-        } else {
-          setLoadingProgress(t("progress.analyzingFacadeData"));
-          const chatJson = await withRetry(
-            async () => {
-              const response = await fetch(AZURE_CHAT_COMPLETIONS_ENDPOINT, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${AZURE_OPENAI_API_KEY}`,
-                },
-                body: JSON.stringify({
-                  messages: [
-                    {
-                      role: "system",
-                      content:
-                        "You are a facade renovation expert for Spraystone. Be concise and precise.",
-                    },
-                    { role: "user", content: textPrompt },
-                  ],
-                  temperature: 0.6,
-                  max_tokens: 900,
-                }),
-              });
-              if (!response.ok) {
-                throw new Error(
-                  `Azure Chat ${response.status}: ${await response.text()}`
-                );
-              }
-              return response.json();
-            },
-            {
-              retries: 4,
-              baseDelayMs: 1500,
-              onRetry: (attempt, total) =>
-                setLoadingProgress(
-                  t("progress.analyzingRetry", {
-                    attempt: attempt + 1,
-                    total,
-                  })
-                ),
-            }
-          );
-          text = chatJson?.choices?.[0]?.message?.content || "";
-        }
-      } else if (TEXT_PROVIDER === "openai") {
-        if (!OPENAI_API_KEY) {
-          setLoadingProgress(t("progress.chatKeyMissing"));
-          text = generateMockAnalysis();
-        } else {
-          setLoadingProgress(t("progress.analyzingFacadeData"));
-          const chatJson = await withRetry(
-            async () => {
-              const response = await fetch(
-                "https://api.openai.com/v1/chat/completions",
-                {
+        if (TEXT_PROVIDER === "azure-openai") {
+          if (!AZURE_CHAT_COMPLETIONS_ENDPOINT || !AZURE_OPENAI_API_KEY) {
+            setLoadingProgress(t("progress.chatNotConfigured"));
+            text = generateMockAnalysis();
+          } else {
+            setLoadingProgress(t("progress.analyzingFacadeData"));
+            const chatJson = await withRetry(
+              async () => {
+                const response = await fetch(AZURE_CHAT_COMPLETIONS_ENDPOINT, {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${OPENAI_API_KEY}`,
+                    Authorization: `Bearer ${AZURE_OPENAI_API_KEY}`,
                   },
                   body: JSON.stringify({
-                    model: OPENAI_CHAT_MODEL,
                     messages: [
                       {
                         role: "system",
@@ -1387,18 +1261,89 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
                     temperature: 0.6,
                     max_tokens: 900,
                   }),
+                });
+                if (!response.ok) {
+                  throw new Error(
+                    `Azure Chat ${response.status}: ${await response.text()}`
+                  );
                 }
-              );
-              if (!response.ok) {
-                throw new Error(
-                  `OpenAI Chat ${response.status}: ${await response.text()}`
-                );
+                return response.json();
+              },
+              {
+                retries: 4,
+                baseDelayMs: 1500,
+                onRetry: (attempt, total) =>
+                  setLoadingProgress(
+                    t("progress.analyzingRetry", {
+                      attempt: attempt + 1,
+                      total,
+                    })
+                  ),
               }
-              return response.json();
-            },
+            );
+            text = chatJson?.choices?.[0]?.message?.content || "";
+          }
+        } else if (TEXT_PROVIDER === "openai") {
+          if (!OPENAI_API_KEY) {
+            setLoadingProgress(t("progress.chatKeyMissing"));
+            text = generateMockAnalysis();
+          } else {
+            setLoadingProgress(t("progress.analyzingFacadeData"));
+            const chatJson = await withRetry(
+              async () => {
+                const response = await fetch(
+                  "https://api.openai.com/v1/chat/completions",
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${OPENAI_API_KEY}`,
+                    },
+                    body: JSON.stringify({
+                      model: OPENAI_CHAT_MODEL,
+                      messages: [
+                        {
+                          role: "system",
+                          content:
+                            "You are a facade renovation expert for Spraystone. Be concise and precise.",
+                        },
+                        { role: "user", content: textPrompt },
+                      ],
+                      temperature: 0.6,
+                      max_tokens: 900,
+                    }),
+                  }
+                );
+                if (!response.ok) {
+                  throw new Error(
+                    `OpenAI Chat ${response.status}: ${await response.text()}`
+                  );
+                }
+                return response.json();
+              },
+              {
+                retries: 4,
+                baseDelayMs: 1500,
+                onRetry: (attempt, total) =>
+                  setLoadingProgress(
+                    t("progress.analyzingRetry", {
+                      attempt: attempt + 1,
+                      total,
+                    })
+                  ),
+              }
+            );
+            text = chatJson?.choices?.[0]?.message?.content || "";
+          }
+        } else if (TEXT_PROVIDER === "gemini") {
+          const genAI = new GoogleGenerativeAI(API_KEY);
+          const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+          setLoadingProgress(t("progress.analyzingFacade"));
+          const aiResult = await withRetry(
+            () => model.generateContent([textPrompt]),
             {
-              retries: 4,
-              baseDelayMs: 1500,
+              retries: 5,
+              baseDelayMs: 2000,
               onRetry: (attempt, total) =>
                 setLoadingProgress(
                   t("progress.analyzingRetry", {
@@ -1408,32 +1353,17 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
                 ),
             }
           );
-          text = chatJson?.choices?.[0]?.message?.content || "";
+          const response = await aiResult.response;
+          text = response.text();
+        } else {
+          text = generateMockAnalysis();
         }
-      } else if (TEXT_PROVIDER === "gemini") {
-        const genAI = new GoogleGenerativeAI(API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        setLoadingProgress(t("progress.analyzingFacade"));
-        const aiResult = await withRetry(
-          () => model.generateContent([textPrompt]),
-          {
-            retries: 5,
-            baseDelayMs: 2000,
-            onRetry: (attempt, total) =>
-              setLoadingProgress(
-                t("progress.analyzingRetry", {
-                  attempt: attempt + 1,
-                  total,
-                })
-              ),
-          }
-        );
-        const response = await aiResult.response;
-        text = response.text();
-      } else {
-        text = generateMockAnalysis();
       }
       setResult(text);
+      setLoadingProgress(t("progress.complete"));
+      if (imagePreview && formData.finish) {
+        await handleGenerateOneFinish();
+      }
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : String(err);
@@ -1443,37 +1373,10 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
       setLoadingProgress("");
     }
   };
-  const resetForm = () => {
-    setCurrentStep(1);
-    setTransitionDirection("forward");
-    setFormData({
-      address: "",
-      facadeType: "",
-      condition: "",
-      surfaceArea: "",
-      finish: RESULT_FINISHES[0],
-      previewFinishes: [],
-      treatments: [],
-      timeline: "",
-      firstName: "",
-      lastName: "",
-      email: "",
-      phonePrefix: DEFAULT_PHONE_PREFIX,
-      phone: "",
-      callDuringDay: false,
-    });
-    setUploadedImage(null);
-    setImagePreview(null);
-    setGeneratedImagesByFinish({});
-    setActiveGeneratedFinish(null);
-    setResult(null);
-    setError(null);
-  };
-
   const canGoNext = () => {
     switch (currentStep) {
       case 1:
-        return isValidAddress(formData.address);
+        return isValidAddress(formData);
       case 2:
         return formData.facadeType !== "";
       case 3:
@@ -1489,21 +1392,9 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
       case 8:
         return formData.timeline !== "";
       case 9:
-        if (formData.callDuringDay) {
-          return isValidPhone(formData.phone);
-        }
-
-        if (LEAD_GATING_MODE !== "before") {
-          if (formData.email && !isValidEmail(formData.email)) return false;
-          if (formData.phone && !isValidPhone(formData.phone)) return false;
-          return true;
-        }
-
-        const hasEmail = formData.email.trim() !== "";
-        const hasPhone = normalizePhone(formData.phone).length > 0;
-        if (!hasEmail && !hasPhone) return false;
-        if (hasEmail && !isValidEmail(formData.email)) return false;
-        if (hasPhone && !isValidPhone(formData.phone)) return false;
+        if (!hasRequiredContactFields(formData)) return false;
+        if (!isValidEmail(formData.email)) return false;
+        if (!isValidPhone(formData.phone)) return false;
         return true;
       default:
         return false;
@@ -1536,11 +1427,19 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
           setError(t("errors.step.timeline"));
           return;
         case 9:
-          if (formData.callDuringDay) {
-            setError(t("errors.step.phoneForCall"));
+          if (!hasRequiredContactFields(formData)) {
+            setError(t("errors.step.contactRequired"));
             return;
           }
-          setError(t("errors.step.emailOrPhone"));
+          if (!isValidEmail(formData.email)) {
+            setError(t("errors.invalidEmail"));
+            return;
+          }
+          if (!isValidPhone(formData.phone)) {
+            setError(t("errors.invalidPhone"));
+            return;
+          }
+          setError(t("errors.step.complete"));
           return;
         default:
           setError(t("errors.step.complete"));
@@ -1620,6 +1519,10 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
   const skipToResults = () => {
     setFormData({
       address: "123 Main Street, 1000 Brussels",
+      street: "Main Street",
+      streetNumber: "123",
+      postalCode: "1000",
+      city: "Brussels",
       facadeType: "brick",
       condition: "good",
       surfaceArea: "100",
@@ -1636,6 +1539,24 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
     });
     setTransitionDirection("forward");
     setResult(generateMockAnalysis());
+  };
+
+  const resetApp = () => {
+    setCurrentStep(1);
+    setFormData({ ...INITIAL_FORM_DATA });
+    setUploadedImage(null);
+    setImagePreview(null);
+    setGeneratedImagesByFinish({});
+    setActiveGeneratedFinish(null);
+    setLoading(false);
+    setLoadingProgress("");
+    setResult(null);
+    setError(null);
+    setHasCreatedOpportunity(false);
+    setIsSubmittingOpportunity(false);
+    setIsImageGenerating(false);
+    setGenerationSecondsRemaining(generationTotalSeconds);
+    setTransitionDirection("forward");
   };
 
   const stepAnimationClass =
@@ -1813,16 +1734,8 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
   const activeGeneratedImage = activeGeneratedFinish
     ? generatedImagesByFinish[activeGeneratedFinish] ?? null
     : null;
-  const finishOptions = [...RESULT_FINISHES];
-  const finishForOne = formData.finish ? (formData.finish as FinishId) : null;
-  const hasAllGeneratedImages = finishOptions.every((finish) =>
-    Boolean(generatedImagesByFinish[finish])
-  );
-  const canGenerateOneFinish =
-    Boolean(finishForOne) &&
-    Boolean(imagePreview) &&
-    !isImageGenerating &&
-    !generatedImagesByFinish[finishForOne as FinishId];
+  const generationStatusText =
+    loadingProgress || t("results.generationPopup.status");
 
   const resultsView = (
     <div className="min-h-[100dvh] overflow-x-hidden bg-gradient-to-br from-[#F5F1E8] via-[#E8DCC8] to-[#fdf8f2]">
@@ -1830,54 +1743,28 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
         formData={formData}
         imagePreview={imagePreview}
         generatedImage={activeGeneratedImage}
-        generatedImagesByFinish={generatedImagesByFinish}
         activeGeneratedFinish={activeGeneratedFinish}
-        finishOptions={finishOptions}
         result={result ?? ""}
         isImageGenerating={isImageGenerating}
         imageGenerationStatus={loadingProgress}
-        imageGenerationEtaSeconds={IMAGE_GENERATION_ETA_SECONDS || 30}
-        imageGenerationBatchEtaSeconds={
-          (IMAGE_GENERATION_ETA_SECONDS || 30) * finishOptions.length
-        }
-        onReset={resetForm}
-        canGenerateOne={canGenerateOneFinish}
-        canGenerateAll={!hasAllGeneratedImages && !isImageGenerating}
-        onGenerateOne={handleGenerateOneFinish}
-        onGenerateAll={handleGenerateAllFinishes}
-        onSelectGeneratedFinish={handleSelectGeneratedFinish}
-        onOpenGame={handleResumeGame}
+        onRestart={resetApp}
       />
     </div>
   );
 
-  const shouldShowGameModal =
-    (isImageGenerating && isGameVisible) || (forceGamePreview && isGameVisible);
-  const modalProgress = forceGamePreview ? undefined : gameProgress;
-
   return (
     <>
-      <GameModal
-        key={gameSessionId}
-        isVisible={shouldShowGameModal}
-        onClose={handleGameClose}
-        progress={modalProgress}
+      <GenerationModal
+        isOpen={isImageGenerating}
+        secondsRemaining={generationSecondsRemaining}
+        totalSeconds={generationTotalSeconds}
+        statusText={generationStatusText}
       />
-      {isImageGenerating &&
-        !forceGamePreview &&
-        !isGameVisible &&
-        gameProgress < 100 && (
-          <button
-            type="button"
-            onClick={handleResumeGame}
-            className="fixed bottom-6 right-6 z-[150] rounded-full border border-[#eadfcb] bg-white/95 px-4 py-3 text-sm font-semibold text-[#2d2a26] shadow-xl shadow-black/10 transition hover:bg-[#fdf7ef]"
-          >
-            {t("common.resumeGame")}
-          </button>
-        )}
       {result ? resultsView : mainForm}
     </>
   );
 }
 
 export { App };
+
+
