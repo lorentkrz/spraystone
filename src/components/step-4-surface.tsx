@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { StepProps } from '@/types';
 import { useI18n } from '@/i18n';
+import { SelectionMark } from '@/components/selection-mark';
 import { selectableCardClass, selectableSegmentClass } from '@/utils/selectable';
 
 type TabType = 'exact' | 'estimate' | 'unknown';
@@ -131,6 +132,7 @@ export const Step4Surface: React.FC<StepProps> = ({ formData, onChange }) => {
                   }`
                 )}
               >
+                <SelectionMark isSelected={formData.surfaceArea === range.value} />
                 {range.label}
               </button>
             ))}

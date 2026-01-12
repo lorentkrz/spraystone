@@ -130,9 +130,9 @@ export const nl = {
     },
     finish: {
       name: 'Afwerking',
-      title: 'Welke afwerkingen wil je previewen?',
+      title: 'Welke afwerking wil je previewen?',
       subtitle:
-        'Selecteer een of meerdere afwerkingen die je op de resultatenpagina wil genereren.',
+        'Optioneel — kies nu één afwerking, of later op de resultatenpagina.',
       sampleAlt: '{title} textuurstaal',
       preview: {
         title: 'Previews om te genereren',
@@ -218,7 +218,8 @@ export const nl = {
       title: 'Hoe kunnen we je contacteren?',
       subtitle: 'Geef minstens één contactmethode zodat we je kunnen bereiken.',
       fields: {
-        name: { placeholder: 'Volledige naam' },
+        firstName: { placeholder: 'Voornaam' },
+        lastName: { placeholder: 'Achternaam' },
         email: { placeholder: 'E-mailadres' },
         phonePrefix: { ariaLabel: 'Landcode' },
         phone: { placeholder: 'Telefoonnummer' },
@@ -248,12 +249,17 @@ export const nl = {
       generation: {
         title: 'Genereer je previews',
         generatingTitle: 'Je previews worden gegenereerd',
-        body: 'Genereer een preview (snel) of genereer de geselecteerde afwerkingen om te vergelijken.',
+        body: 'Selecteer een afwerking en genereer een preview.',
         ctaOne: 'Genereer selectie ({finish})',
         etaOne: 'Ongeveer {seconds}s',
         ctaAll: 'Genereer de geselecteerde afwerkingen ({count})',
         etaAll: 'Ongeveer {seconds}s totaal',
         note: 'Elke afwerking kan maar 1 keer per sessie worden gegenereerd.',
+      },
+      moreLooks: {
+        title: 'Wil je een andere look?',
+        body: 'Als je wil, kan je een andere afwerking genereren en vergelijken.',
+        cta: 'Toon afwerkingen',
       },
     },
     summaryTitle: 'Samenvatting',
@@ -275,7 +281,12 @@ export const nl = {
       type: 'Type',
       surface: 'Oppervlakte',
       finish: 'Afwerking',
+      timeline: 'Timing',
       treatments: 'Behandelingen',
+      name: 'Naam',
+      email: 'E-mailadres',
+      phone: 'Telefoon',
+      callback: 'Oproep overdag',
     },
     imageModal: {
       beforeTitle: 'Huidige gevel',
@@ -304,6 +315,7 @@ export const nl = {
       toggleTotal: 'Vast totaal',
       toggleFinancing: 'Financiering',
       totalCaption: 'Vast totaal te financieren bedrag',
+      installmentCaption: 'Geschatte maandtermijn',
       perMonth: '/ maand',
       financedAmount: 'Gefinancierd bedrag:',
       duration: 'Looptijd:',
@@ -319,10 +331,11 @@ export const nl = {
       disclaimer: '* Definitieve offerte onder voorbehoud van plaatsbezoek',
     },
     texture: {
-      previewTitle: 'Gegenereerde afwerkingen',
+      previewTitle: 'Kies een afwerking',
       previewAction: 'Bekijk dit textuurstaal',
-      previewHelp: 'Genereer de geselecteerde afwerkingen om te kunnen wisselen, tik daarna op een afwerking om de preview te zien.',
-      locked: 'Genereer de geselecteerde afwerkingen om te ontgrendelen',
+      previewHelp:
+        'Tik op een afwerking om te selecteren. Gegenereerde afwerkingen openen meteen; andere kan je hierboven genereren.',
+      locked: 'Selecteer om te genereren',
       title: 'Kies een andere textuur',
       generateTitle: 'Genereer deze textuur',
       optionAlt: '{label} gegenereerde preview',

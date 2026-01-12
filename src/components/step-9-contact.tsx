@@ -21,27 +21,40 @@ export const Step9Contact: React.FC<StepProps> = ({ formData, onChange }) => {
             <User className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              name="name"
-              value={formData.name}
+              name="firstName"
+              value={formData.firstName}
               onChange={onChange}
-              placeholder={t('steps.contact.fields.name.placeholder')}
+              placeholder={t('steps.contact.fields.firstName.placeholder')}
               className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-12 pr-4 text-gray-900"
-              autoComplete="name"
+              autoComplete="given-name"
             />
           </div>
 
           <div className="relative">
-            <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <User className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
-              type="email"
-              name="email"
-              value={formData.email}
+              type="text"
+              name="lastName"
+              value={formData.lastName}
               onChange={onChange}
-              placeholder={t('steps.contact.fields.email.placeholder')}
+              placeholder={t('steps.contact.fields.lastName.placeholder')}
               className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-12 pr-4 text-gray-900"
-              autoComplete="email"
+              autoComplete="family-name"
             />
           </div>
+        </div>
+
+        <div className="relative">
+          <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={onChange}
+            placeholder={t('steps.contact.fields.email.placeholder')}
+            className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-12 pr-4 text-gray-900"
+            autoComplete="email"
+          />
         </div>
 
         <div className="flex gap-3">

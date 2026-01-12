@@ -44,14 +44,14 @@ export const Step5Finish: React.FC<Step5FinishProps> = ({
   onTogglePreviewFinish,
 }) => {
   const { t } = useI18n();
-  const selectedCount = formData.previewFinishes.length;
-  const selectedFinishCards = finishCards.filter((card) =>
-    formData.previewFinishes.includes(card.id)
-  );
+  const selectedFinish = formData.previewFinishes[0] ?? null;
 
   return (
     <div>
       <div className="mb-5 text-center sm:mb-8">
+        <div className="mx-auto mb-2 inline-flex w-fit items-center justify-center rounded-full border border-[#eadfcb] bg-[#fdf8f2] px-3 py-1 text-[11px] font-semibold text-[#6B5E4F]">
+          {t('common.optional')}
+        </div>
         <h2 className="mb-3 text-2xl font-bold text-gray-900">
           {t('steps.finish.title')}
         </h2>
@@ -64,7 +64,7 @@ export const Step5Finish: React.FC<Step5FinishProps> = ({
           const title = t(`${keyBase}.title`);
           const subtitle = t(`${keyBase}.subtitle`);
           const bestFor = t(`${keyBase}.bestFor`);
-          const isSelected = formData.previewFinishes.includes(card.id);
+          const isSelected = selectedFinish === card.id;
 
           return (
             <button
@@ -110,55 +110,6 @@ export const Step5Finish: React.FC<Step5FinishProps> = ({
             </button>
           );
         })}
-      </div>
-
-      <div className="mt-6 rounded-2xl border border-[#eadfcb] bg-[#fdf8f2] p-4 shadow-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#6B5E4F]">
-              {t('steps.finish.preview.title')}
-            </p>
-            <p className="mt-1 text-xs text-gray-600">
-              {t('steps.finish.preview.subtitle')}
-            </p>
-            <p className="mt-1 text-[11px] text-gray-600">
-              {t('steps.finish.preview.hint')}
-            </p>
-          </div>
-          <div className="self-start rounded-full border border-[#eadfcb] bg-white px-3 py-1 text-xs font-semibold text-gray-700">
-            {t('steps.finish.preview.count', {
-              count: selectedCount,
-              total: finishCards.length,
-            })}
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {selectedFinishCards.map((card) => {
-            const title = t(`results.texture.options.${card.id}`);
-            return (
-              <div
-                key={card.id}
-                className="relative overflow-hidden rounded-xl border border-[#d4a574]/40 bg-white shadow-sm"
-              >
-                <SelectionMark isSelected />
-                <div className="relative h-16 w-full overflow-hidden bg-gray-50">
-                  <img
-                    src={card.image}
-                    alt={t('steps.finish.sampleAlt', { title })}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
-                </div>
-                <div className="px-2 py-1.5">
-                  <div className="truncate text-xs font-semibold text-[#2D2A26]">
-                    {title}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
       </div>
     </div>
   );

@@ -9,7 +9,7 @@ export const selectableCardClass = (selected: boolean, className?: string) =>
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a574]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
     'active:scale-[0.99]',
     selected
-      ? 'border-[#d4a574] bg-[#fffaf2] shadow-lg ring-4 ring-[#d4a574]/30'
+      ? 'border-[#d4a574] bg-[#fffaf2] shadow-none outline outline-2 outline-[#d4a574]/35'
       : 'border-[#eadfcb] hover:border-[#d4a574]/70 hover:shadow-md',
     className
   );

@@ -122,9 +122,9 @@ export const en = {
     },
     finish: {
       name: 'Finish',
-      title: 'Which finishes do you want to preview?',
+      title: 'Which finish would you like to preview?',
       subtitle:
-        'Select one or more finishes you want to generate on the results page.',
+        'Optional — choose one finish now, or pick later on the results page.',
       sampleAlt: '{title} texture sample',
       preview: {
         title: 'Previews to generate',
@@ -211,7 +211,8 @@ export const en = {
       title: 'How can we contact you?',
       subtitle: 'Provide at least one contact method so we can reach you.',
       fields: {
-        name: { placeholder: 'Full name' },
+        firstName: { placeholder: 'First name' },
+        lastName: { placeholder: 'Last name' },
         email: { placeholder: 'Email address' },
         phonePrefix: { ariaLabel: 'Country prefix' },
         phone: { placeholder: 'Phone number' },
@@ -241,12 +242,17 @@ export const en = {
       generation: {
         title: 'Generate your previews',
         generatingTitle: 'Generating your previews',
-        body: 'Generate one preview (fast) or generate selected finishes to compare.',
+        body: 'Select a finish and generate a preview.',
         ctaOne: 'Generate selected ({finish})',
         etaOne: 'About {seconds}s',
         ctaAll: 'Generate selected finishes ({count})',
         etaAll: 'About {seconds}s total',
         note: 'Each finish can be generated once per session.',
+      },
+      moreLooks: {
+        title: 'Want a different look?',
+        body: 'If you want, you can generate another finish and compare.',
+        cta: 'Show finishes',
       },
     },
     summaryTitle: 'Summary',
@@ -268,7 +274,12 @@ export const en = {
       type: 'Type',
       surface: 'Surface',
       finish: 'Finish',
+      timeline: 'Timeline',
       treatments: 'Treatments',
+      name: 'Name',
+      email: 'Email',
+      phone: 'Phone',
+      callback: 'Daytime callback',
     },
     imageModal: {
       beforeTitle: 'Current Facade',
@@ -297,6 +308,7 @@ export const en = {
       toggleTotal: 'Fixed total',
       toggleFinancing: 'Financing',
       totalCaption: 'Fixed total financing amount',
+      installmentCaption: 'Estimated monthly installment',
       perMonth: '/ month',
       financedAmount: 'Financed amount:',
       duration: 'Duration:',
@@ -315,12 +327,13 @@ export const en = {
     texture: {
       title: 'Texture examples',
       generateTitle: 'Preview this texture sample',
-      previewTitle: 'Generated finishes',
+      previewTitle: 'Choose a finish',
       previewAction: 'Show this finish',
       optionAlt: '{label} generated preview',
       help: 'Examples only (no extra generation). Ask our team if you want additional previews.',
-      previewHelp: 'Generate selected finishes to unlock switching, then tap a finish to view the preview.',
-      locked: 'Generate selected finishes to unlock',
+      previewHelp:
+        'Tap a finish to select it. Generated finishes open instantly; other finishes can be generated above.',
+      locked: 'Select to generate',
       options: {
         'natural-stone': 'Natural stone',
         smooth: 'Smooth',

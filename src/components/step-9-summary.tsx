@@ -61,7 +61,16 @@ export const Step9Summary: React.FC<Step9SummaryProps> = ({ formData, imagePrevi
           />
           <DetailRow icon={<Paintbrush className="w-5 h-5" />} label="Finish" value={formData.finish || 'Natural stone'} />
           <DetailRow icon={<Calendar className="w-5 h-5" />} label="Timeline" value={formData.timeline || 'To be determined'} />
-          <DetailRow icon={<User className="w-5 h-5" />} label="Name" value={formData.name || 'Not provided'} />
+          <DetailRow
+            icon={<User className="w-5 h-5" />}
+            label="First name"
+            value={formData.firstName || 'Not provided'}
+          />
+          <DetailRow
+            icon={<User className="w-5 h-5" />}
+            label="Last name"
+            value={formData.lastName || 'Not provided'}
+          />
           <DetailRow icon={<Mail className="w-5 h-5" />} label="Email" value={formData.email || 'Not provided'} />
           <DetailRow
             icon={<Phone className="w-5 h-5" />}

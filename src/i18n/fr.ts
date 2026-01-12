@@ -123,7 +123,7 @@ export const fr = {
     },
     finish: {
       name: 'Finition',
-      title: 'Quelles finitions souhaitez-vous previsualiser ?',
+      title: 'Quelle finition souhaitez-vous previsualiser ?',
       preview: {
         title: 'Apercus a generer',
         subtitle: 'Selectionnez une ou plusieurs finitions pour la page de resultats.',
@@ -132,7 +132,7 @@ export const fr = {
         note: 'Le bouton \"Generer les finitions selectionnees\" suivra cette selection.',
       },
       subtitle:
-        'Choisissez la finition qui correspond le mieux à votre résultat idéal. Chaque option utilise la même texture pour le rendu.',
+        'Optionnel — choisissez une finition maintenant, ou plus tard sur la page de resultats.',
       sampleAlt: 'Échantillon de texture : {title}',
       options: {
         'natural-stone': {
@@ -213,7 +213,8 @@ export const fr = {
       subtitle:
         'Indiquez au moins un moyen de contact afin que nous puissions vous joindre.',
       fields: {
-        name: { placeholder: 'Nom complet' },
+        firstName: { placeholder: 'Prénom' },
+        lastName: { placeholder: 'Nom' },
         email: { placeholder: 'Adresse e-mail' },
         phonePrefix: { ariaLabel: 'Indicatif' },
         phone: { placeholder: 'Numéro de téléphone' },
@@ -243,12 +244,17 @@ export const fr = {
       generation: {
         title: 'Generer vos apercus',
         generatingTitle: 'Generation de vos apercus',
-        body: 'Generez un apercu (rapide) ou les finitions selectionnees pour comparer.',
+        body: 'Selectionnez une finition puis generez un apercu.',
         ctaOne: 'Generer la selection ({finish})',
         etaOne: 'Environ {seconds}s',
         ctaAll: 'Generer les finitions selectionnees ({count})',
         etaAll: 'Environ {seconds}s au total',
         note: 'Chaque finition ne peut etre generee qu\'une fois par session.',
+      },
+      moreLooks: {
+        title: "Envie d'un autre rendu ?",
+        body: 'Si vous le souhaitez, vous pouvez comparer avec une autre finition.',
+        cta: 'Voir les finitions',
       },
     },
     summaryTitle: 'Résumé',
@@ -270,7 +276,12 @@ export const fr = {
       type: 'Type',
       surface: 'Surface',
       finish: 'Finition',
+      timeline: 'Délai',
       treatments: 'Traitements',
+      name: 'Nom',
+      email: 'E-mail',
+      phone: 'Téléphone',
+      callback: 'Rappel en journée',
     },
     imageModal: {
       beforeTitle: 'Façade actuelle',
@@ -299,6 +310,7 @@ export const fr = {
       toggleTotal: 'Total fixe',
       toggleFinancing: 'Financement',
       totalCaption: 'Montant total fixe à financer',
+      installmentCaption: 'Mensualité estimée',
       perMonth: '/ mois',
       financedAmount: 'Montant financé :',
       duration: 'Durée :',
@@ -315,10 +327,11 @@ export const fr = {
       disclaimer: '* Devis final sous réserve d’une visite sur site',
     },
     texture: {
-      previewTitle: 'Finitions generees',
+      previewTitle: 'Choisir une finition',
       previewAction: 'Voir cet echantillon',
-      previewHelp: 'Generez les finitions selectionnees pour debloquer la comparaison, puis choisissez une finition pour voir l\'apercu.',
-      locked: 'Generez les finitions selectionnees pour debloquer',
+      previewHelp:
+        'Touchez une finition pour la selectionner. Les apercus generes s\'ouvrent tout de suite; les autres peuvent etre generes ci-dessus.',
+      locked: 'Selectionner pour generer',
       title: 'Choisir une autre texture',
       generateTitle: 'Générer cette texture',
       optionAlt: 'Échantillon de texture : {label}',

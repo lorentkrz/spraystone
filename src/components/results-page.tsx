@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Camera, Download, Euro, Loader2, Mail, MapPin, Phone, Send } from 'lucide-react';
+import { Camera, Download, Euro, Loader2, Send } from 'lucide-react';
 import { generateQuotePDF } from '@/utils/pdf-generator';
 import { ImageModal } from './image-modal';
 import { useI18n } from '@/i18n';
@@ -30,7 +30,6 @@ interface ResultsPageProps {
   onSelectGeneratedFinish: (finish: FinishId) => void;
   onReset: () => void;
   onOpenGame: () => void;
-  onToggleCallDuringDay: () => void;
 }
 
 const clamp = (value: number, min: number, max: number) =>
@@ -164,21 +163,16 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
   isImageGenerating,
   imageGenerationStatus,
   imageGenerationEtaSeconds = 30,
-  imageGenerationBatchEtaSeconds = 30 * 4,
   canGenerateOne,
-  canGenerateAll,
   onGenerateOne,
-  onGenerateAll,
+  canGenerateAll: _canGenerateAll,
+  onGenerateAll: _onGenerateAll,
+  imageGenerationBatchEtaSeconds: _imageGenerationBatchEtaSeconds,
   onSelectGeneratedFinish,
   onReset,
   onOpenGame,
-  onToggleCallDuringDay,
 }) => {
   const { t, locale } = useI18n();
-
-  const [activeTab, setActiveTab] = useState<
-    'preview' | 'investment' | 'contact'
-  >('preview');
 
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [modalImage, setModalImage] = useState<string | null>(null);
@@ -230,12 +224,25 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
     ? t(`steps.finish.options.${formData.finish}.title`)
     : '';
 
+  const prettyTimeline = formData.timeline
+    ? t(`steps.timeline.options.${formData.timeline}`)
+    : '';
+
   const prettySurface = useMemo(() => {
     const sa = String(formData.surfaceArea || '').trim();
     if (!sa || sa === 'unknown') return t('common.toBeMeasured');
     if (/m\u00B2$/i.test(sa)) return sa;
     return `${sa} m\u00B2`;
   }, [formData.surfaceArea, t]);
+
+  const fullName = useMemo(() => {
+    return [formData.firstName, formData.lastName].filter(Boolean).join(' ').trim();
+  }, [formData.firstName, formData.lastName]);
+
+  const prettyPhone = useMemo(() => {
+    if (!formData.phone) return '';
+    return `${formData.phonePrefix || ''} ${formData.phone}`.trim();
+  }, [formData.phonePrefix, formData.phone]);
 
   const prettyTreatments = useMemo(() => {
     const treatments = formData.treatments || [];
@@ -244,6 +251,10 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
       .map((tr) => t(`steps.treatments.options.${tr}.title`))
       .join(', ');
   }, [formData.treatments, t]);
+
+  const callbackStatus = formData.callDuringDay
+    ? t('pdf.callback.requested')
+    : t('pdf.callback.notRequested');
 
   const fixedEstimateAmount = useMemo(
     () => deriveFixedEstimateAmount(result, formData.surfaceArea),
@@ -286,6 +297,12 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
     () => finishOptions.filter((id) => Boolean(generatedImagesByFinish[id])).length,
     [finishOptions, generatedImagesByFinish]
   );
+
+  const selectedFinish = useMemo(() => {
+    const current = formData.finish ? (formData.finish as FinishId) : null;
+    if (current && finishOptions.includes(current)) return current;
+    return finishOptions[0] ?? null;
+  }, [formData.finish, finishOptions]);
 
   const finishPreviewOptions = useMemo(
     () =>
@@ -337,27 +354,15 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex w-fit rounded-full border border-[#eadfcb] bg-[#fdf8f2] p-1 text-xs font-semibold shadow-sm">
-              {(['preview', 'investment', 'contact'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={selectableSegmentClass(activeTab === tab, 'px-3 py-2')}
-                >
-                  {t(`results.tabs.${tab}`)}
-                </button>
-              ))}
-            </div>
             <LanguageSwitcher />
           </div>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 rounded-3xl border border-[#d4a574]/30 bg-white/80 p-3 shadow-xl md:p-4">
           <div className="min-h-0 flex-1">
-            {activeTab === 'preview' && (
-              <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
-                <div className="rounded-2xl border border-[#eadfcb] bg-white shadow-sm xl:col-span-8">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
+                <div className="flex flex-col gap-3 xl:col-span-8">
+                  <div className="rounded-2xl border border-[#eadfcb] bg-white shadow-sm">
                   <div className="flex items-center justify-between gap-2 border-b border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#6B5E4F]">
                       {t('results.preview.title')}
@@ -492,6 +497,174 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
                   </div>
                 </div>
 
+                <div className="rounded-2xl border border-[#eadfcb] bg-gradient-to-br from-[#fdf8f2] to-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-[#c4955e]">
+                        {t('results.investment.title')}
+                      </p>
+                      <p className="mt-1 text-xs text-[#6B5E4F]">
+                        {t('results.investment.subtitle')}
+                      </p>
+                    </div>
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-md">
+                      <Euro className="h-7 w-7" style={{ color: '#D4A574' }} />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 inline-flex rounded-full bg-white/70 p-1 text-xs font-semibold shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setInvestmentView('total')}
+                      className={selectableSegmentClass(
+                        investmentView === 'total',
+                        'px-3 py-1.5'
+                      )}
+                    >
+                      {t('results.investment.toggleTotal')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInvestmentView('financing')}
+                      className={selectableSegmentClass(
+                        investmentView === 'financing',
+                        'px-3 py-1.5'
+                      )}
+                    >
+                      {t('results.investment.toggleFinancing')}
+                    </button>
+                  </div>
+
+                  {investmentView === 'total' ? (
+                    <>
+                      <div className="mt-4 text-4xl font-extrabold text-[#2D2A26]">
+                        {fixedEstimateLabel}
+                      </div>
+                      <div className="mt-1 text-xs text-[#6B5E4F]">
+                        {t('results.investment.totalCaption')}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="mt-4 flex flex-wrap items-baseline gap-x-2">
+                        <div className="text-4xl font-extrabold text-[#2D2A26]">
+                          {typeof installment === 'number'
+                            ? formatEur(installment ?? 0, {
+                                maximumFractionDigits: 2,
+                              })
+                            : 'ƒ?"'}
+                        </div>
+                        <div className="text-sm font-semibold text-[#6B5E4F]">
+                          {t('results.investment.installmentCaption')}
+                        </div>
+                      </div>
+
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-[#6B5E4F]">
+                        <div>
+                          <span className="font-semibold">
+                            {t('results.investment.financedAmount')}
+                          </span>{' '}
+                          {fixedEstimateLabel}
+                        </div>
+                        <div>
+                          <span className="font-semibold">
+                            {t('results.investment.duration')}
+                          </span>{' '}
+                          {loanDurationMonths} {t('common.months')}
+                        </div>
+                        <div>
+                          <span className="font-semibold">
+                            {t('results.investment.rate')}
+                          </span>{' '}
+                          {(LOAN_TAEG * 100).toFixed(2)}%
+                        </div>
+                        <div>
+                          <span className="font-semibold">
+                            {t('results.investment.calcRate')}
+                          </span>{' '}
+                          {(calcRate * 100).toFixed(2)}%
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <label
+                          className="text-xs font-semibold text-[#6B5E4F]"
+                          htmlFor="loan-duration"
+                        >
+                          {t('results.investment.durationLabel')}
+                        </label>
+                        <select
+                          id="loan-duration"
+                          value={loanDurationMonths}
+                          onChange={(e) =>
+                            setLoanDurationMonths(Number(e.target.value))
+                          }
+                          className="rounded-lg border border-[#d4a574]/40 bg-white px-3 py-2 text-sm font-semibold text-[#2D2A26] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4a574]/40"
+                        >
+                          {availableDurations.map((m) => (
+                            <option key={m} value={m}>
+                              {m}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <details className="mt-3 rounded-xl border border-[#d4a574]/30 bg-white/60 p-3">
+                        <summary className="cursor-pointer text-xs font-semibold text-[#6B5E4F]">
+                          {t('results.investment.legalMaxSummary')}
+                        </summary>
+                        <div className="mt-2">
+                          <table className="w-full table-fixed text-xs text-[#2D2A26]">
+                            <thead>
+                              <tr className="text-left text-[#6B5E4F]">
+                                <th className="pb-2 pr-4 font-semibold">
+                                  {t('results.investment.legalMax.amount')}
+                                </th>
+                                <th className="pb-2 font-semibold">
+                                  {t('results.investment.legalMax.duration')}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {LEGAL_MAX_DURATIONS.map((row) => {
+                                const range =
+                                  row.max === Infinity
+                                    ? `${t('results.investment.legalMax.over')} ${formatEur(
+                                        row.min,
+                                        { maximumFractionDigits: 0 }
+                                      )}`
+                                    : `${formatEur(row.min, {
+                                        maximumFractionDigits: 0,
+                                      })} ƒ?" ${formatEur(row.max, {
+                                        maximumFractionDigits: 0,
+                                      })}`;
+                                return (
+                                  <tr
+                                    key={`${row.min}-${row.max}`}
+                                    className="border-t border-[#d4a574]/20"
+                                  >
+                                    <td className="py-2 pr-4 break-words">
+                                      {range}
+                                    </td>
+                                    <td className="py-2">
+                                      {row.months} {t('common.months')}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </details>
+                    </>
+                  )}
+
+                  <div className="mt-3 text-xs text-[#6B5E4F]">
+                    {t('results.investment.disclaimer')}
+                  </div>
+                </div>
+              </div>
+
                 <div className="flex flex-col gap-3 xl:col-span-4">
                   <div className="rounded-2xl border border-[#eadfcb] bg-white p-3 shadow-sm">
                     <div className="flex items-start justify-between gap-3">
@@ -556,27 +729,6 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
                             </div>
                           </div>
 
-                          <div className="flex flex-col gap-1">
-                            <button
-                              type="button"
-                              onClick={onGenerateAll}
-                              disabled={!imagePreview || !canGenerateAll}
-                              className={`button-press inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-xs font-semibold shadow-sm transition ${
-                                !imagePreview || !canGenerateAll
-                                  ? 'cursor-not-allowed bg-gray-100 text-gray-500'
-                                  : 'border border-[#eadfcb] bg-white text-[#2D2A26] hover:bg-[#fdf8f2]'
-                              }`}
-                            >
-                              {t('results.preview.generation.ctaAll', {
-                                count: finishOptions.length,
-                              })}
-                            </button>
-                            <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                              {t('results.preview.generation.etaAll', {
-                                seconds: imageGenerationBatchEtaSeconds,
-                              })}
-                            </div>
-                          </div>
                         </div>
 
                         <p className="mt-3 text-[10px] text-[#6B5E4F]">
@@ -594,16 +746,16 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
                     </div>
                     <div className="mt-2 grid grid-cols-2 gap-2">
                       {finishPreviewOptions.map((opt) => {
-                        const isSelected = activeGeneratedFinish === opt.id;
+                        const isSelected = selectedFinish === opt.id;
                         return (
                           <button
                             key={opt.id}
                             type="button"
-                            disabled={isImageGenerating || !opt.hasPreview}
+                            disabled={isImageGenerating}
                             onClick={() => onSelectGeneratedFinish(opt.id)}
                             className={selectableCardClass(
                               isSelected,
-                              'group overflow-hidden rounded-xl text-left disabled:cursor-not-allowed disabled:opacity-60'
+                              'group overflow-hidden text-left disabled:cursor-not-allowed disabled:opacity-60'
                             )}
                             title={
                               isSelected
@@ -677,6 +829,14 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
                           {prettyFinish || t('common.notSpecified')}
                         </div>
                       </div>
+                      <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
+                        <div className="text-[10px] font-semibold text-[#6B5E4F]">
+                          {t('results.details.timeline')}
+                        </div>
+                        <div className="mt-0.5 truncate font-semibold">
+                          {prettyTimeline || t('common.notSpecified')}
+                        </div>
+                      </div>
                     </div>
                     <div className="mt-2 text-[11px] text-[#6B5E4F]">
                       <span className="font-semibold">
@@ -684,12 +844,45 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
                       </span>{' '}
                       {prettyTreatments}
                     </div>
+                    <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-[#2D2A26] sm:grid-cols-2 xl:grid-cols-1">
+                      <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
+                        <div className="text-[10px] font-semibold text-[#6B5E4F]">
+                          {t('results.details.name')}
+                        </div>
+                        <div className="mt-0.5 truncate font-semibold">
+                          {fullName || t('common.notProvided')}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
+                        <div className="text-[10px] font-semibold text-[#6B5E4F]">
+                          {t('results.details.email')}
+                        </div>
+                        <div className="mt-0.5 truncate font-semibold">
+                          {formData.email || t('common.notProvided')}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
+                        <div className="text-[10px] font-semibold text-[#6B5E4F]">
+                          {t('results.details.phone')}
+                        </div>
+                        <div className="mt-0.5 truncate font-semibold">
+                          {prettyPhone || t('common.notProvided')}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
+                        <div className="text-[10px] font-semibold text-[#6B5E4F]">
+                          {t('results.details.callback')}
+                        </div>
+                        <div className="mt-0.5 truncate font-semibold">
+                          {callbackStatus}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            )}
 
-            {activeTab === 'investment' && (
+            {false && (
               <div className="h-full rounded-2xl border border-[#eadfcb] bg-gradient-to-br from-[#fdf8f2] to-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -741,8 +934,8 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
                   <>
                     <div className="mt-4 flex flex-wrap items-baseline gap-x-2">
                       <div className="text-4xl font-extrabold text-[#2D2A26]">
-                        {installment
-                          ? formatEur(installment, {
+                        {typeof installment === 'number'
+                          ? formatEur(installment ?? 0, {
                               maximumFractionDigits: 2,
                             })
                           : '—'}
@@ -858,84 +1051,6 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
               </div>
             )}
 
-            {activeTab === 'contact' && (
-              <div className="grid h-full grid-cols-1 gap-3 lg:grid-cols-2">
-                <div className="rounded-2xl border border-[#eadfcb] bg-gradient-to-br from-[#fdf8f2] to-white p-4 shadow-sm">
-                  <h3 className="text-sm font-bold text-[#2D2A26]">
-                    {t('results.next.title')}
-                  </h3>
-                  <div className="mt-3 grid gap-2">
-                    {[1, 2, 3].map((n) => (
-                      <div key={n} className="flex items-start gap-3">
-                        <div className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[#c4955e] text-xs font-bold text-white">
-                          {n}
-                        </div>
-                        <div>
-                          <div className="text-xs font-semibold text-[#2D2A26]">
-                            {t(`results.next.step${n}.title`)}
-                          </div>
-                          <div className="text-[11px] text-[#6B5E4F]">
-                            {t(`results.next.step${n}.body`)}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-[#eadfcb] bg-white p-4 shadow-sm">
-                  <h3 className="text-sm font-bold text-[#2D2A26]">
-                    {t('results.contact.title')}
-                  </h3>
-                  <div className="mt-3 space-y-2 text-sm text-[#2D2A26]">
-                    <div className="flex items-start gap-2 rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                      <MapPin className="mt-0.5 h-4 w-4 text-[#c4955e]" />
-                      <div className="min-w-0">
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#6B5E4F]">
-                          {t('results.details.address')}
-                        </div>
-                        <div className="truncate text-xs font-semibold">
-                          {formData.address || t('common.notProvided')}
-                        </div>
-                      </div>
-                    </div>
-
-                    {formData.email && (
-                      <div className="flex items-center gap-2 text-xs text-[#6B5E4F]">
-                        <Mail className="h-4 w-4 text-[#c4955e]" />
-                        <span className="truncate">{formData.email}</span>
-                      </div>
-                    )}
-                    {formData.phone && (
-                      <div className="flex items-center gap-2 text-xs text-[#6B5E4F]">
-                        <Phone className="h-4 w-4 text-[#c4955e]" />
-                        <span className="truncate">{`${formData.phonePrefix} ${formData.phone}`}</span>
-                      </div>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={onToggleCallDuringDay}
-                      disabled={!formData.phone}
-                      className={`mt-2 w-full rounded-xl border px-3 py-3 text-left text-xs font-semibold transition ${
-                        formData.callDuringDay
-                          ? 'border-[#d4a574] bg-[#fff1dd] text-[#2d2a26]'
-                          : 'border-[#d4a574]/40 bg-white text-[#2d2a26] hover:bg-[#fff7ec]'
-                      } ${!formData.phone ? 'cursor-not-allowed opacity-60' : ''}`}
-                    >
-                      {t('steps.contact.callDuringDay.title')}
-                      <div className="mt-1 text-[11px] font-normal text-[#6b5e4f]">
-                        {!formData.phone
-                          ? t('results.contact.call.noPhone')
-                          : formData.callDuringDay
-                            ? t('results.contact.call.requested')
-                            : t('results.contact.call.optional')}
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:gap-3">

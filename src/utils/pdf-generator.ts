@@ -168,6 +168,11 @@ const formatPhone = (data: FormData): string => {
   return `${data.phonePrefix || ""} ${data.phone}`.trim();
 };
 
+const formatFullName = (data: FormData): string => {
+  const fullName = [data.firstName, data.lastName].filter(Boolean).join(" ");
+  return fullName.trim();
+};
+
 const detectImageType = (dataUrl: string): "PNG" | "JPEG" => {
   if (dataUrl.startsWith("data:image/png")) return "PNG";
   if (dataUrl.startsWith("data:image/webp")) return "JPEG";
@@ -202,6 +207,7 @@ export const generateQuotePDF = async (
     LOAN_TAEG
   );
   const logoData = typeof window !== "undefined" ? await loadLogo() : null;
+  const fullName = formatFullName(formData);
 
   doc.setFillColor(245, 241, 232);
   doc.rect(0, 0, 210, 297, "F");
@@ -221,7 +227,7 @@ export const generateQuotePDF = async (
   doc.text(t("pdf.header.date", { date: today }), 150, 32);
 
   const projectData: Array<[string, string]> = [
-    [t("pdf.fields.client"), formData.name || "—"],
+    [t("pdf.fields.client"), fullName || t("common.notProvided")],
     [t("pdf.fields.email"), formData.email || "—"],
     [t("pdf.fields.phone"), formatPhone(formData)],
     [
@@ -411,7 +417,7 @@ export const generateQuotePDF = async (
   );
   doc.text(t("pdf.footer.contact"), 10, 290);
 
-  const fileName = `Spraystone_Quote_${formData.name || "Client"}_${today.replace(
+  const fileName = `Spraystone_Quote_${fullName || "Client"}_${today.replace(
     /\//g,
     "-"
   )}.pdf`;

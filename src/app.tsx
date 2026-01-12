@@ -40,13 +40,33 @@ const PROXY_IMAGE_ENDPOINT =
 const IMAGE_GENERATION_ETA_SECONDS = Number(
   import.meta.env.VITE_IMAGE_GENERATION_ETA_SECONDS || 30
 );
-const IMAGE_GENERATION_SIZE = ((): "256x256" | "512x512" | "1024x1024" => {
+type ImageGenerationSize = "1024x1024" | "1024x1536" | "1536x1024" | "auto";
+const IMAGE_GENERATION_SIZE = ((): ImageGenerationSize => {
   const candidate = import.meta.env.VITE_IMAGE_GENERATION_SIZE;
-  if (candidate === "256x256" || candidate === "512x512" || candidate === "1024x1024")
+  if (
+    candidate === "1024x1024" ||
+    candidate === "1024x1536" ||
+    candidate === "1536x1024" ||
+    candidate === "auto"
+  )
     return candidate;
-  return "512x512";
+  return "1024x1024";
 })();
-const IMAGE_GENERATION_DIM = Number(IMAGE_GENERATION_SIZE.split("x")[0]) || 512;
+
+const IMAGE_GENERATION_TARGET = (() => {
+  if (IMAGE_GENERATION_SIZE === "1024x1536") return { width: 1024, height: 1536 };
+  if (IMAGE_GENERATION_SIZE === "1536x1024") return { width: 1536, height: 1024 };
+  return { width: 1024, height: 1024 };
+})();
+
+const normalizeImageSize = (
+  size: ImageGenerationSize
+): Exclude<ImageGenerationSize, "auto"> => {
+  if (size === "auto") return "1024x1024";
+  return size;
+};
+const IMAGE_GENERATION_SIZE_FOR_API = normalizeImageSize(IMAGE_GENERATION_SIZE);
+
 const ENABLE_BATCH_IMAGE_GENERATION =
   import.meta.env.VITE_ENABLE_BATCH_IMAGE_GENERATION !== "false";
 const GENERATION_UPLOAD_MIME_TYPE = "image/jpeg";
@@ -121,10 +141,11 @@ function App() {
     condition: "",
     surfaceArea: "",
     finish: RESULT_FINISHES[0],
-    previewFinishes: [RESULT_FINISHES[0]],
+    previewFinishes: [],
     treatments: [],
     timeline: "",
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phonePrefix: DEFAULT_PHONE_PREFIX,
     phone: "",
@@ -231,15 +252,9 @@ function App() {
       if (
         target.name === "finish" &&
         typeof value === "string" &&
-        prev.finish !== value &&
-        isPreviewFinish(value)
+        prev.finish !== value
       ) {
-        const current = prev.previewFinishes?.length
-          ? prev.previewFinishes
-          : [...RESULT_FINISHES];
-        const set = new Set(current);
-        set.add(value);
-        next.previewFinishes = RESULT_FINISHES.filter((finish) => set.has(finish));
+        next.previewFinishes = isPreviewFinish(value) ? [value] : [];
       }
 
       return next;
@@ -249,36 +264,11 @@ function App() {
   const handleTogglePreviewFinish = (finish: PreviewFinish) => {
     setError(null);
     setFormData((prev) => {
-      const current = prev.previewFinishes?.length
-        ? prev.previewFinishes
-        : [...RESULT_FINISHES];
-      const set = new Set(current);
-      const wasSelected = set.has(finish);
+      const current = prev.previewFinishes?.[0] || null;
+      const nextPreviewFinishes = current === finish ? [] : [finish];
+      const nextFinish = current === finish ? RESULT_FINISHES[0] : finish;
 
-      if (set.has(finish)) {
-        if (set.size === 1) return prev;
-        set.delete(finish);
-      } else {
-        set.add(finish);
-      }
-
-      const nextPreviewFinishes = RESULT_FINISHES.filter((id) => set.has(id));
-
-      const primaryFinish = prev.finish;
-      const primaryStillSelected =
-        isPreviewFinish(primaryFinish) && nextPreviewFinishes.includes(primaryFinish);
-
-      const nextPrimaryFinish = !wasSelected
-        ? finish
-        : primaryFinish === finish || !primaryStillSelected
-          ? nextPreviewFinishes[0]
-          : primaryFinish;
-
-      return {
-        ...prev,
-        finish: nextPrimaryFinish,
-        previewFinishes: nextPreviewFinishes,
-      };
+      return { ...prev, finish: nextFinish, previewFinishes: nextPreviewFinishes };
     });
   };
 
@@ -584,7 +574,7 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
       .trim();
     const prepared = await letterboxToFile(
       imagePreview,
-      { width: IMAGE_GENERATION_DIM, height: IMAGE_GENERATION_DIM },
+      IMAGE_GENERATION_TARGET,
       {
         fileName: `${baseName || "spraystone-upload"}-prepared.jpg`,
         mimeType: GENERATION_UPLOAD_MIME_TYPE,
@@ -739,7 +729,7 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
       try {
         const form = new FormData();
         form.append("prompt", imagePrompt);
-        form.append("size", IMAGE_GENERATION_SIZE);
+        form.append("size", IMAGE_GENERATION_SIZE_FOR_API);
         form.append("n", "1");
         form.append("response_format", "b64_json");
         form.append("image", uploadForGeneration);
@@ -853,7 +843,7 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
       const form = new FormData();
       form.append("model", OPENAI_IMAGE_MODEL);
       form.append("prompt", promptWithContext);
-      form.append("size", IMAGE_GENERATION_SIZE);
+      form.append("size", IMAGE_GENERATION_SIZE_FOR_API);
       if (!OPENAI_IMAGE_MODEL.startsWith("gpt-image")) {
         form.append("response_format", "b64_json");
       }
@@ -925,7 +915,7 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
               imageBase64: base64,
               imageMimeType: uploadForGeneration.type,
               prompt: imagePrompt,
-              size: IMAGE_GENERATION_SIZE,
+              size: IMAGE_GENERATION_SIZE_FOR_API,
               materialReferenceBase64,
               materialReferenceMimeType,
               selections: selectionContext,
@@ -1024,22 +1014,25 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
   };
 
   const handleGenerateOneFinish = async () => {
-    const hasAnyGenerated = Object.keys(generatedImagesByFinish).length > 0;
-    if (isImageGenerating || hasAnyGenerated) return;
+    if (isImageGenerating) return;
     if (!formData.finish) return;
+    const finish = formData.finish as FinishId;
+    if (generatedImagesByFinish[finish]) {
+      setActiveGeneratedFinish(finish);
+      return;
+    }
 
     setError(null);
     startImageGenerationSession();
     try {
       const prepared = await prepareUploadForGeneration();
-      const finish = formData.finish as FinishId;
       const finishLabel = t(`results.texture.options.${finish}`);
       const reportProgress = createProgressReporter({ prefix: finishLabel });
       const output = await generateImageForFinish(finish, prepared, reportProgress);
       if (!output) {
         throw new Error("image_generation_failed");
       }
-      setGeneratedImagesByFinish({ [finish]: output });
+      setGeneratedImagesByFinish((prev) => ({ ...prev, [finish]: output }));
       setActiveGeneratedFinish(finish);
     } catch (err) {
       handleImageGenerationError(err);
@@ -1107,7 +1100,7 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
                   imageBase64: base64,
                   imageMimeType: prepared.uploadForGeneration.type,
                   prompt: batchPrompt,
-                  size: IMAGE_GENERATION_SIZE,
+                  size: IMAGE_GENERATION_SIZE_FOR_API,
                   finishIds: missingFinishes,
                   materialReferences: materialRefs,
                 }),
@@ -1181,8 +1174,15 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
   };
 
   const handleSelectGeneratedFinish = (finish: FinishId) => {
-    if (!generatedImagesByFinish[finish]) return;
-    setActiveGeneratedFinish(finish);
+    setError(null);
+    setFormData((prev) => ({
+      ...prev,
+      finish,
+      previewFinishes: isPreviewFinish(finish) ? [finish] : [],
+    }));
+    if (generatedImagesByFinish[finish]) {
+      setActiveGeneratedFinish(finish);
+    }
   };
   const generateMockAnalysis = () => {
     const surface = parseSurfaceAreaAverage(formData.surfaceArea) || 100;
@@ -1452,10 +1452,11 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
       condition: "",
       surfaceArea: "",
       finish: RESULT_FINISHES[0],
-      previewFinishes: [RESULT_FINISHES[0]],
+      previewFinishes: [],
       treatments: [],
       timeline: "",
-      name: "",
+      firstName: "",
+      lastName: "",
       email: "",
       phonePrefix: DEFAULT_PHONE_PREFIX,
       phone: "",
@@ -1469,10 +1470,6 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
     setError(null);
   };
 
-  const handleToggleCallDuringDay = () => {
-    setFormData((prev) => ({ ...prev, callDuringDay: !prev.callDuringDay }));
-  };
-
   const canGoNext = () => {
     switch (currentStep) {
       case 1:
@@ -1484,7 +1481,7 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
       case 4:
         return formData.surfaceArea !== "";
       case 5:
-        return formData.previewFinishes.length > 0;
+        return true;
       case 6:
         return uploadedImage !== null;
       case 7:
@@ -1630,7 +1627,8 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
       previewFinishes: ["natural-stone"],
       treatments: ["water-repellent"],
       timeline: "1-3months",
-      name: "John Doe",
+      firstName: "John",
+      lastName: "Doe",
       email: "john@example.com",
       phonePrefix: DEFAULT_PHONE_PREFIX,
       phone: "123 456 789",
@@ -1815,12 +1813,16 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
   const activeGeneratedImage = activeGeneratedFinish
     ? generatedImagesByFinish[activeGeneratedFinish] ?? null
     : null;
-  const selectedPreviewFinishes =
-    formData.previewFinishes?.length ? formData.previewFinishes : [...RESULT_FINISHES];
-  const hasAnyGeneratedImage = Object.keys(generatedImagesByFinish).length > 0;
-  const hasAllGeneratedImages = selectedPreviewFinishes.every((finish) =>
+  const finishOptions = [...RESULT_FINISHES];
+  const finishForOne = formData.finish ? (formData.finish as FinishId) : null;
+  const hasAllGeneratedImages = finishOptions.every((finish) =>
     Boolean(generatedImagesByFinish[finish])
   );
+  const canGenerateOneFinish =
+    Boolean(finishForOne) &&
+    Boolean(imagePreview) &&
+    !isImageGenerating &&
+    !generatedImagesByFinish[finishForOne as FinishId];
 
   const resultsView = (
     <div className="min-h-[100dvh] overflow-x-hidden bg-gradient-to-br from-[#F5F1E8] via-[#E8DCC8] to-[#fdf8f2]">
@@ -1830,22 +1832,21 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
         generatedImage={activeGeneratedImage}
         generatedImagesByFinish={generatedImagesByFinish}
         activeGeneratedFinish={activeGeneratedFinish}
-        finishOptions={selectedPreviewFinishes}
+        finishOptions={finishOptions}
         result={result ?? ""}
         isImageGenerating={isImageGenerating}
         imageGenerationStatus={loadingProgress}
         imageGenerationEtaSeconds={IMAGE_GENERATION_ETA_SECONDS || 30}
         imageGenerationBatchEtaSeconds={
-          (IMAGE_GENERATION_ETA_SECONDS || 30) * selectedPreviewFinishes.length
+          (IMAGE_GENERATION_ETA_SECONDS || 30) * finishOptions.length
         }
         onReset={resetForm}
-        canGenerateOne={!hasAnyGeneratedImage && !isImageGenerating}
+        canGenerateOne={canGenerateOneFinish}
         canGenerateAll={!hasAllGeneratedImages && !isImageGenerating}
         onGenerateOne={handleGenerateOneFinish}
         onGenerateAll={handleGenerateAllFinishes}
         onSelectGeneratedFinish={handleSelectGeneratedFinish}
         onOpenGame={handleResumeGame}
-        onToggleCallDuringDay={handleToggleCallDuringDay}
       />
     </div>
   );

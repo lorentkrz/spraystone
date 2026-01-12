@@ -14,7 +14,8 @@ export interface FormData {
   previewFinishes: PreviewFinish[];
   treatments: Treatment[];
   timeline: Timeline;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phonePrefix: string;
   phone: string;
