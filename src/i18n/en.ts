@@ -362,6 +362,13 @@ export const en = {
       },
     },
   },
+  crm: {
+    title: 'Spraystone Simulator Lead',
+    sections: {
+      project: 'Project Details',
+      contact: 'Contact Details',
+    },
+  },
   pdf: {
     header: {
       title: 'Spraystone Facade Estimate',

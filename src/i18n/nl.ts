@@ -368,6 +368,13 @@ export const nl = {
       },
     },
   },
+  crm: {
+    title: 'Spraystone Simulator lead',
+    sections: {
+      project: 'Projectdetails',
+      contact: 'Contactgegevens',
+    },
+  },
   pdf: {
     header: {
       title: 'Spraystone gevelofferte',

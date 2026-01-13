@@ -363,6 +363,13 @@ export const fr = {
       },
     },
   },
+  crm: {
+    title: 'Lead simulateur Spraystone',
+    sections: {
+      project: 'Détails du projet',
+      contact: 'Détails du contact',
+    },
+  },
   pdf: {
     header: {
       title: 'Devis façade Spraystone',

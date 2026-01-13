@@ -244,6 +244,14 @@ function App() {
     return [streetLine, cityLine].filter(Boolean).join(", ").trim();
   };
 
+  const escapeHtml = (value: string) =>
+    value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
   const truncateText = (value: string, maxLength: number) =>
     value.length > maxLength ? value.slice(0, maxLength) : value;
 
@@ -289,23 +297,63 @@ function App() {
       .join(" ")
       .trim();
     const addressLine = buildAddressFromParts(formData) || formData.address;
+    const projectTitle = t("crm.sections.project");
+    const contactTitle = t("crm.sections.contact");
+    const labels = {
+      address: t("steps.address.name"),
+      facadeType: t("steps.facadeType.name"),
+      condition: t("steps.condition.name"),
+      surfaceArea: t("steps.surface.name"),
+      finish: t("steps.finish.name"),
+      treatments: t("steps.treatments.name"),
+      timeline: t("steps.timeline.name"),
+      name: t("results.details.name"),
+      email: t("results.details.email"),
+      phone: t("results.details.phone"),
+      callback: t("results.details.callback"),
+    };
 
-    const lines = [
-      "Spraystone Simulator Lead",
-      addressLine ? `Address: ${addressLine}` : null,
-      facadeLabel ? `Facade type: ${facadeLabel}` : null,
-      conditionLabel ? `Condition: ${conditionLabel}` : null,
-      formData.surfaceArea ? `Surface area: ${formData.surfaceArea}` : null,
-      finishLabel ? `Finish: ${finishLabel}` : null,
-      treatmentsLabel ? `Treatments: ${treatmentsLabel}` : null,
-      timelineLabel ? `Timeline: ${timelineLabel}` : null,
-      fullName ? `Name: ${fullName}` : null,
-      formData.email ? `Email: ${formData.email}` : null,
-      phone ? `Phone: ${phone}` : null,
-      `Callback: ${callbackLabel}`,
+    const formatSurfaceArea = (value: string) => {
+      const trimmed = value.trim();
+      if (!trimmed || trimmed === "unknown") return t("common.toBeMeasured");
+      if (/m\s*(?:2|\u00B2)$/i.test(trimmed)) return trimmed;
+      return `${trimmed} m2`;
+    };
+
+    const buildLine = (label: string, value?: string) => {
+      const cleaned = value?.trim();
+      if (!cleaned) return null;
+      return `<strong>${escapeHtml(label)}:</strong> ${escapeHtml(cleaned)}`;
+    };
+
+    const projectLines = [
+      buildLine(labels.address, addressLine),
+      buildLine(labels.facadeType, facadeLabel),
+      buildLine(labels.condition, conditionLabel),
+      buildLine(
+        labels.surfaceArea,
+        formData.surfaceArea ? formatSurfaceArea(String(formData.surfaceArea)) : ""
+      ),
+      buildLine(labels.finish, finishLabel),
+      buildLine(labels.treatments, treatmentsLabel),
+      buildLine(labels.timeline, timelineLabel),
+    ].filter(Boolean);
+
+    const contactLines = [
+      buildLine(labels.name, fullName),
+      buildLine(labels.email, formData.email || ""),
+      buildLine(labels.phone, phone),
+      buildLine(labels.callback, callbackLabel),
+    ].filter(Boolean);
+
+    const sections = [
+      `<strong>${escapeHtml(projectTitle)}</strong>`,
+      ...projectLines,
+      `<strong>${escapeHtml(contactTitle)}</strong>`,
+      ...contactLines,
     ];
 
-    return lines.filter(Boolean).join("\n");
+    return sections.filter(Boolean).join("<br>");
   };
 
   const buildOpportunityQuery = () => {
