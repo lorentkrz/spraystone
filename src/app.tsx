@@ -158,7 +158,7 @@ const CRM_CULTURE_BY_LANG = {
   nl: "nl-NL",
 } as const;
 function App() {
-  const { t, lang } = useI18n();
+  const { t, lang, locale } = useI18n();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     ...INITIAL_FORM_DATA,
@@ -298,6 +298,7 @@ function App() {
       .trim();
     const addressLine = buildAddressFromParts(formData) || formData.address;
     const projectTitle = t("crm.sections.project");
+    const estimateTitle = t("crm.sections.estimate");
     const contactTitle = t("crm.sections.contact");
     const labels = {
       address: t("steps.address.name"),
@@ -311,6 +312,7 @@ function App() {
       email: t("results.details.email"),
       phone: t("results.details.phone"),
       callback: t("results.details.callback"),
+      estimatedTotal: t("crm.labels.estimatedTotal"),
     };
 
     const formatSurfaceArea = (value: string) => {
@@ -326,6 +328,43 @@ function App() {
       return `<strong>${escapeHtml(label)}:</strong> ${escapeHtml(cleaned)}`;
     };
 
+    const formatCurrency = (value: number) =>
+      new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: "EUR",
+        maximumFractionDigits: 0,
+      }).format(value);
+
+    const parseNumber = (value: string | number | null | undefined): number | null => {
+      if (!value) return null;
+      const digits = String(value).replace(/[^\d]/g, "");
+      if (!digits) return null;
+      const parsed = Number.parseInt(digits, 10);
+      return Number.isNaN(parsed) ? null : parsed;
+    };
+
+    const extractTotalRange = (text: string): { min: number; max: number } | null => {
+      const rangeMatch =
+        text.match(/TOTAL\s+PROJECT\s+COST[^\d]*([\d.,]+)\s*-\s*([\d.,]+)/i) ||
+        text.match(/TOTAL[^\d]*([\d.,]+)\s*-\s*([\d.,]+)/i);
+      if (!rangeMatch) return null;
+      const min = parseNumber(rangeMatch[1]);
+      const max = parseNumber(rangeMatch[2]);
+      if (min === null || max === null) return null;
+      return { min, max };
+    };
+
+    const extractTotalSingle = (text: string): number | null => {
+      const match =
+        text.match(/TOTAL\s+PROJECT\s+COST[^\d]*([\d.,]+)/i) ||
+        text.match(/TOTAL[^\d]*([\d.,]+)/i);
+      if (!match) return null;
+      return parseNumber(match[1]);
+    };
+
+    const roundToNearest = (value: number, step: number) =>
+      Math.round(value / step) * step;
+
     const projectLines = [
       buildLine(labels.address, addressLine),
       buildLine(labels.facadeType, facadeLabel),
@@ -339,6 +378,24 @@ function App() {
       buildLine(labels.timeline, timelineLabel),
     ].filter(Boolean);
 
+    const estimateValue = (() => {
+      const text = result || "";
+      const range = extractTotalRange(text);
+      if (range) {
+        return `${formatCurrency(range.min)} - ${formatCurrency(range.max)}`;
+      }
+      const single = extractTotalSingle(text);
+      if (single !== null) return formatCurrency(single);
+      const surface = parseSurfaceAreaAverage(formData.surfaceArea);
+      const low = roundToNearest(surface * 80, 100);
+      const high = roundToNearest(surface * 150, 100);
+      return `${formatCurrency(low)} - ${formatCurrency(high)}`;
+    })();
+
+    const estimateLines = estimateValue
+      ? [buildLine(labels.estimatedTotal, estimateValue)]
+      : [];
+
     const contactLines = [
       buildLine(labels.name, fullName),
       buildLine(labels.email, formData.email || ""),
@@ -349,6 +406,9 @@ function App() {
     const sections = [
       `<strong>${escapeHtml(projectTitle)}</strong>`,
       ...projectLines,
+      ...(estimateLines.length
+        ? [`<strong>${escapeHtml(estimateTitle)}</strong>`, ...estimateLines]
+        : []),
       `<strong>${escapeHtml(contactTitle)}</strong>`,
       ...contactLines,
     ];

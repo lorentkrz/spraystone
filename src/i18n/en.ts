@@ -366,7 +366,11 @@ export const en = {
     title: 'Spraystone Simulator Lead',
     sections: {
       project: 'Project Details',
+      estimate: 'Estimate',
       contact: 'Contact Details',
+    },
+    labels: {
+      estimatedTotal: 'Estimated total',
     },
   },
   pdf: {

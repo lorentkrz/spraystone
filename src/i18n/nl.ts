@@ -372,7 +372,11 @@ export const nl = {
     title: 'Spraystone Simulator lead',
     sections: {
       project: 'Projectdetails',
+      estimate: 'Schatting',
       contact: 'Contactgegevens',
+    },
+    labels: {
+      estimatedTotal: 'Geschat totaal',
     },
   },
   pdf: {

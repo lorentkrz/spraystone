@@ -366,8 +366,12 @@ export const fr = {
   crm: {
     title: 'Lead simulateur Spraystone',
     sections: {
+      estimate: 'Estimation',
       project: 'Détails du projet',
       contact: 'Détails du contact',
+    },
+    labels: {
+      estimatedTotal: 'Total estime',
     },
   },
   pdf: {
