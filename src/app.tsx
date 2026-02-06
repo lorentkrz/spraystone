@@ -78,6 +78,9 @@ const RESULT_FINISHES = [
   "natural-stone",
   "smooth",
   "textured",
+  "gris-bleue",
+  "gris-bleue-nuancee",
+  "brick",
   "other",
 ] as const satisfies ReadonlyArray<PreviewFinish>;
 
@@ -109,26 +112,46 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 // const GAME_BEFORE_IMAGE = "/game-before.jpg";
 // const GAME_AFTER_IMAGE = "/game-after.jpg";
 const SPRAYSTONE_REFERENCE_MAP: Record<string, string> = {
-  "natural-stone": "/limestone-classic.jpg",
-  smooth: "/render-neutral.jpg",
-  textured: "/limestone-textured.jpg",
-  suggest: "/render-neutral.jpg",
-  other: "/brick-warm.jpg",
+  "natural-stone": "/Pierre de france..jpeg",
+  smooth: "/Pierre des gres beige brun.jpeg",
+  textured: "/Pierre des gres claire.jpeg",
+  "gris-bleue": "/Pierre des gres blau.jpeg",
+  "gris-bleue-nuancee": "/Pierre gris bleue nuance.jpeg",
   brick: "/brick-warm.jpg",
-  render: "/render-neutral.jpg",
-  concrete: "/limestone-textured.jpg",
-  painted: "/render-neutral.jpg",
+  other: "/WhatsApp Image 2026-01-21 at 15.46.04.jpeg",
+  suggest: "/WhatsApp Image 2026-01-21 at 15.46.04.jpeg",
+  render: "/WhatsApp Image 2026-01-21 at 15.47.09.jpeg",
+  concrete: "/WhatsApp Image 2026-01-21 at 15.46.04 (1).jpeg",
+  painted: "/WhatsApp Image 2026-01-21 at 15.46.04.jpeg",
 };
 
-const DEFAULT_REFERENCE_TEXTURE = "/limestone-classic.jpg";
+const DEFAULT_REFERENCE_TEXTURE =
+  "/Pierre de france..jpeg";
 
 const FINISH_LABELS: Record<string, string> = {
-  "natural-stone": "Natural stone Spraystone finish",
-  smooth: "Smooth or textured render",
-  textured: "Textured Spraystone finish",
+  "natural-stone": "Pierre de France finish",
+  smooth: "Pierre de grès beige/brun finish",
+  textured: "Pierre de grès claire finish",
+  "gris-bleue": "Pierre gris bleue finish",
+  "gris-bleue-nuancee": "Pierre gris bleue nuancée finish",
+  brick: "Brique rouge finish",
+  other: "Other finish",
   suggest: "Suggested by Spraystone",
-  other: "Custom Spraystone hybrid",
 };
+
+const PRICE_PER_M2_BY_FINISH: Record<string, number> = {
+  "natural-stone": 130,
+  smooth: 130,
+  textured: 130,
+  "gris-bleue": 130,
+  "gris-bleue-nuancee": 130,
+  brick: 140,
+  other: 130,
+  suggest: 130,
+};
+
+const getPricePerM2ForFinish = (finish: FormData["finish"]) =>
+  PRICE_PER_M2_BY_FINISH[finish || "natural-stone"] ?? 130;
 
 const FACADE_LABELS: Record<string, string> = {
   brick: "Brick / masonry",
@@ -158,7 +181,7 @@ const CRM_CULTURE_BY_LANG = {
   nl: "nl-NL",
 } as const;
 function App() {
-  const { t, lang, locale } = useI18n();
+  const { t, lang } = useI18n();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     ...INITIAL_FORM_DATA,
@@ -328,38 +351,11 @@ function App() {
       return `<strong>${escapeHtml(label)}:</strong> ${escapeHtml(cleaned)}`;
     };
 
-    const formatCurrency = (value: number) =>
-      new Intl.NumberFormat(locale, {
-        style: "currency",
-        currency: "EUR",
-        maximumFractionDigits: 0,
-      }).format(value);
-
-    const parseNumber = (value: string | number | null | undefined): number | null => {
-      if (!value) return null;
-      const digits = String(value).replace(/[^\d]/g, "");
-      if (!digits) return null;
-      const parsed = Number.parseInt(digits, 10);
-      return Number.isNaN(parsed) ? null : parsed;
-    };
-
-    const extractTotalRange = (text: string): { min: number; max: number } | null => {
-      const rangeMatch =
-        text.match(/TOTAL\s+PROJECT\s+COST[^\d]*([\d.,]+)\s*-\s*([\d.,]+)/i) ||
-        text.match(/TOTAL[^\d]*([\d.,]+)\s*-\s*([\d.,]+)/i);
-      if (!rangeMatch) return null;
-      const min = parseNumber(rangeMatch[1]);
-      const max = parseNumber(rangeMatch[2]);
-      if (min === null || max === null) return null;
-      return { min, max };
-    };
-
-    const extractTotalSingle = (text: string): number | null => {
-      const match =
-        text.match(/TOTAL\s+PROJECT\s+COST[^\d]*([\d.,]+)/i) ||
-        text.match(/TOTAL[^\d]*([\d.,]+)/i);
-      if (!match) return null;
-      return parseNumber(match[1]);
+    const formatTvac = (value: number) => {
+      const normalized = Number.isFinite(value) ? value : 0;
+      const [intPart, decimalPart] = normalized.toFixed(2).split(".");
+      const withThousands = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      return `${withThousands},${decimalPart} € TVAC`;
     };
 
     const roundToNearest = (value: number, step: number) =>
@@ -379,17 +375,10 @@ function App() {
     ].filter(Boolean);
 
     const estimateValue = (() => {
-      const text = result || "";
-      const range = extractTotalRange(text);
-      if (range) {
-        return `${formatCurrency(range.min)} - ${formatCurrency(range.max)}`;
-      }
-      const single = extractTotalSingle(text);
-      if (single !== null) return formatCurrency(single);
       const surface = parseSurfaceAreaAverage(formData.surfaceArea);
-      const low = roundToNearest(surface * 80, 100);
-      const high = roundToNearest(surface * 150, 100);
-      return `${formatCurrency(low)} - ${formatCurrency(high)}`;
+      const rate = getPricePerM2ForFinish(formData.finish);
+      const total = roundToNearest(surface * rate, 10);
+      return formatTvac(total);
     })();
 
     const estimateLines = estimateValue
@@ -484,7 +473,7 @@ function App() {
     finish: string
   ): Promise<string | null> => {
     try {
-      const response = await fetch(getReferencePath(finish));
+      const response = await fetch(encodeURI(getReferencePath(finish)));
       if (!response.ok) return null;
       const blob = await response.blob();
       return await fileReaderToDataUrl(blob);
@@ -731,15 +720,21 @@ function App() {
   }) => {
     const finishMap: Record<string, string> = {
       "natural-stone":
-        "Belgian limestone inspired Spraystone blocks with soft chiseled edges, pale silver-grey palette, matte mineral texture, and subtle aggregate sparkle",
+        "Pierre de France limestone blocks with warm beige tone, soft chiseled edges, matte mineral texture, and crisp light joints",
       smooth:
-        "Modern smooth render with micro-texture, even tone, delicate sheen, and razor-sharp transitions around openings",
+        "Pierre de grès beige/brun with subtle grain, sandy texture, and gentle tonal variation across stones",
       textured:
-        "Decorative mineral coating with layered depth, gentle relief, highlighted shadows, and artisanal trowel marks",
+        "Pierre de grès claire with light cream tones, delicate relief, and natural stone variation",
+      "gris-bleue":
+        "Pierre gris bleue with cool grey-blue tones, mineral depth, and natural stone relief variation",
+      "gris-bleue-nuancee":
+        "Pierre gris bleue nuancée with mixed blue-grey tones, nuanced shading, and authentic limestone joints",
+      brick:
+        "Brique rouge finish with warm terracotta tones, defined brick joints, and realistic brick scale",
       suggest:
-        "Premium Spraystone standard set: neutral stone blend with light amber undertones and authentic joint patterning",
+        "Neutral stone blend with soft beige undertones and authentic joint patterning",
       other:
-        "Custom Spraystone hybrid with warm brick / masonry cues, terracotta-beige undertones, subtle joint lines, and a crisp mineral texture",
+        "Custom mixed mineral finish with neutral natural-stone character and balanced joint depth",
     };
 
     const finishId =
@@ -766,7 +761,7 @@ function App() {
     const materialStyleSection = [
       referenceInstruction,
       `Target look: ${finishLabel} - ${finishDescription}.`,
-      finishId === "other"
+      finishId === "brick"
         ? "If a brick/masonry pattern is used, keep a realistic brick scale (~ 21 x 6.5 cm) with consistent mortar joints."
         : "Block scale ≈ 25 × 8 cm with tight joints, deep mortar lines, and natural variation around reveals.",
       "Surface character: matte mineral texture with subtle aggregate sparkle and crisp transitions around windows and doors.",
@@ -837,8 +832,8 @@ Provide a CONCISE analysis (max 400 words) with:
 
 4. **PRICING ESTIMATE**:
    - Estimate total surface area from photo if not provided
-   - Price range: \u20AC80-150/m\u00B2 (including prep, coating, treatments)
-   - TOTAL PROJECT COST in \u20AC (be specific, e.g., "\u20AC6,500 - \u20AC9,800")
+   - Price model: \u20AC130/m\u00B2 for all finishes except Brique rouge at \u20AC140/m\u00B2
+   - TOTAL PROJECT COST in \u20AC (be specific; single value or a tight range)
 
 5. **TIMELINE**: Realistic duration (e.g., "3-4 weeks")
 
@@ -1231,8 +1226,8 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
 
   const generateMockAnalysis = () => {
     const surface = parseSurfaceAreaAverage(formData.surfaceArea) || 100;
-    const lowPrice = Math.round(surface * 80);
-    const highPrice = Math.round(surface * 150);
+    const ratePerM2 = getPricePerM2ForFinish(formData.finish);
+    const totalPrice = Math.round(surface * ratePerM2);
     const finishLabel =
       FINISH_LABELS[formData.finish as keyof typeof FINISH_LABELS] ||
       "Natural stone";
@@ -1261,8 +1256,8 @@ Currently, your facade presents a standard finish with minimal texture. After Sp
 
 **PRICING ESTIMATE**:
 - Estimated surface area: ${surface} m\u00B2
-- Price range: \u20AC80-150/m\u00B2 (including prep, coating, treatments)
-- **TOTAL PROJECT COST: \u20AC${lowPrice.toLocaleString()} - \u20AC${highPrice.toLocaleString()}**
+- Applied rate: \u20AC${ratePerM2}/m\u00B2
+- **TOTAL PROJECT COST: \u20AC${totalPrice.toLocaleString()}**
 
 **TIMELINE**:
 Realistic project duration: 3-4 weeks from approval to completion, including preparation, application, and curing time.`;

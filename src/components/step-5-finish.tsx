@@ -15,27 +15,45 @@ interface FinishCardMeta {
 const finishCards: FinishCardMeta[] = [
   {
     id: 'natural-stone',
-    image: '/limestone-classic.jpg',
+    image: '/Pierre de france..jpeg',
     icon: <Gem className="h-5 w-5" />,
     palette: ['#D9D4C9', '#B6B0A3', '#8F897B'],
   },
   {
     id: 'smooth',
-    image: '/render-neutral.jpg',
+    image: '/Pierre des gres beige brun.jpeg',
     icon: <Waves className="h-5 w-5" />,
-    palette: ['#DDD8D2', '#C8C3BD', '#A9A39D'],
+    palette: ['#DDD2C3', '#BDA788', '#8C7561'],
   },
   {
     id: 'textured',
-    image: '/limestone-textured.jpg',
+    image: '/Pierre des gres claire.jpeg',
     icon: <Sparkles className="h-5 w-5" />,
-    palette: ['#DCCEBF', '#C0A98F', '#8D6A4D'],
+    palette: ['#E3DACB', '#C7B69D', '#948167'],
   },
   {
-    id: 'other',
+    id: 'gris-bleue',
+    image: '/Pierre des gres blau.jpeg',
+    icon: <Waves className="h-5 w-5" />,
+    palette: ['#D6DCE2', '#9EA9B6', '#6D7A87'],
+  },
+  {
+    id: 'gris-bleue-nuancee',
+    image: '/Pierre gris bleue nuance.jpeg',
+    icon: <Sparkles className="h-5 w-5" />,
+    palette: ['#DCE0E4', '#A9B0B8', '#707982'],
+  },
+  {
+    id: 'brick',
     image: '/brick-warm.jpg',
     icon: <Compass className="h-5 w-5" />,
     palette: ['#C97848', '#AF5E35', '#7B3F24'],
+  },
+  {
+    id: 'other',
+    image: '/WhatsApp Image 2026-01-21 at 15.46.04.jpeg',
+    icon: <Compass className="h-5 w-5" />,
+    palette: ['#D7D0C3', '#B6AB98', '#8A7A64'],
   },
 ];
 
@@ -58,7 +76,7 @@ export const Step5Finish: React.FC<Step5FinishProps> = ({
         <p className="text-gray-600">{t('steps.finish.subtitle')}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {finishCards.map((card) => {
           const keyBase = `steps.finish.options.${card.id}`;
           const title = t(`${keyBase}.title`);

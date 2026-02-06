@@ -284,6 +284,9 @@ export const generateQuotePDF = async (
     "natural-stone",
     "smooth",
     "textured",
+    "gris-bleue",
+    "gris-bleue-nuancee",
+    "brick",
     "other",
     "suggest",
   ];

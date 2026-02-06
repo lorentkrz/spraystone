@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Camera, Euro, Loader2 } from 'lucide-react';
 import { ImageModal } from './image-modal';
 import { useI18n } from '@/i18n';
@@ -21,12 +21,6 @@ interface ResultsPageProps {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
-const parseNumber = (s: string | number | null | undefined): number | null => {
-  if (!s) return null;
-  const digits = String(s).replace(/[^\d]/g, '');
-  return digits ? parseInt(digits, 10) : null;
-};
-
 const roundToNearest = (value: number, step: number) =>
   Math.round(value / step) * step;
 
@@ -47,44 +41,21 @@ const parseSurfaceAreaAverage = (
   return isNaN(num) ? null : num;
 };
 
-const deriveFixedEstimateAmount = (
-  text: string,
-  surfaceArea: FormData['surfaceArea']
-): number => {
-  const totalRange =
-    text.match(/TOTAL\s+PROJECT\s+COST[^\d]*([\d.,]+)\s*-\s*([\d.,]+)/i) ||
-    text.match(/TOTAL[^\d]*([\d.,]+)\s*-\s*([\d.,]+)/i);
-  if (totalRange) {
-    const lo = parseNumber(totalRange[1]);
-    const hi = parseNumber(totalRange[2]);
-    if (lo && hi) {
-      return roundToNearest((lo + hi) / 2, 100);
-    }
-  }
-
-  const single = text.match(/TOTAL\s+PROJECT\s+COST[^\d]*([\d.,]+)/i);
-  if (single) {
-    const v = parseNumber(single[1]);
-    if (v) return roundToNearest(v, 100);
-  }
-
-  const perM2 = text.match(
-    /(?:\u20AC|\bEUR\b)?\s*([\d.,]+)\s*-\s*(?:\u20AC|\bEUR\b)?\s*([\d.,]+)\s*\/\s*m(?:\u00B2|2)/i
-  );
-  if (perM2) {
-    const lo = parseNumber(perM2[1]);
-    const hi = parseNumber(perM2[2]);
-    const area = parseSurfaceAreaAverage(surfaceArea) || 100;
-    if (lo && hi) {
-      const avg = (lo + hi) / 2;
-      return roundToNearest(avg * area, 100);
-    }
-  }
-
-  const fallbackArea = parseSurfaceAreaAverage(surfaceArea) || 100;
-  const fallbackRatePerM2 = 115;
-  return roundToNearest(fallbackArea * fallbackRatePerM2, 100);
+const DEFAULT_SURFACE_AREA = 100;
+const DEFAULT_PRICE_PER_M2 = 130;
+const PRICE_PER_M2_BY_FINISH: Record<string, number> = {
+  'natural-stone': 130,
+  smooth: 130,
+  textured: 130,
+  'gris-bleue': 130,
+  'gris-bleue-nuancee': 130,
+  brick: 140,
+  suggest: 130,
+  other: 130,
 };
+
+const getPricePerM2 = (finish: FormData['finish']) =>
+  PRICE_PER_M2_BY_FINISH[finish || 'natural-stone'] ?? DEFAULT_PRICE_PER_M2;
 
 const extractVisualization = (text: string): string => {
   const visualMatch = text.match(
@@ -93,42 +64,12 @@ const extractVisualization = (text: string): string => {
   return visualMatch ? visualMatch[1].trim() : '';
 };
 
-const LOAN_TAEG = 0.0699;
-
-const loanCalcRate = (taeg: number) => (Math.pow(1 + taeg, 1 / 12) - 1) * 12;
-
-const calculateMonthlyInstallment = (
-  principal: number,
-  months: number,
-  taeg: number
-): number | null => {
-  if (!principal || principal <= 0 || !months || months <= 0) return null;
-  const calcRate = loanCalcRate(taeg);
-  const monthlyRate = calcRate / 12;
-  if (monthlyRate === 0) return principal / months;
-  return (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -months));
-};
-
-const LEGAL_MAX_DURATIONS = [
-  { min: 200, max: 500, months: 18 },
-  { min: 501, max: 2500, months: 24 },
-  { min: 2501, max: 3700, months: 30 },
-  { min: 3701, max: 5600, months: 36 },
-  { min: 5601, max: 7500, months: 42 },
-  { min: 7501, max: 10000, months: 48 },
-  { min: 10001, max: 15000, months: 60 },
-  { min: 15001, max: 20000, months: 84 },
-  { min: 20001, max: Infinity, months: 120 },
-] as const;
-
-const getMaxDurationMonths = (amount: number): number => {
-  for (const rule of LEGAL_MAX_DURATIONS) {
-    if (amount >= rule.min && amount <= rule.max) return rule.months;
-  }
-  return 120;
-};
-
-const DURATION_OPTIONS = [18, 24, 30, 36, 42, 48, 60, 84, 120] as const;
+const MIN_MONTHS = 12;
+const MAX_MONTHS = 120;
+const MONTH_STEP = 6;
+const MIN_SURFACE = 20;
+const MAX_SURFACE = 300;
+const SURFACE_STEP = 5;
 
 export const ResultsPage: React.FC<ResultsPageProps> = ({
   formData,
@@ -153,6 +94,13 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
       currency: 'EUR',
       ...options,
     }).format(value);
+
+  const formatTvac = (value: number) => {
+    const normalized = Number.isFinite(value) ? value : 0;
+    const [intPart, decimalPart] = normalized.toFixed(2).split('.');
+    const withThousands = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return `${withThousands},${decimalPart} € TVAC`;
+  };
 
   const openImageModal = (
     src: string,
@@ -190,15 +138,6 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
     return `${sa} m\u00B2`;
   }, [formData.surfaceArea, t]);
 
-  const fullName = useMemo(() => {
-    return [formData.firstName, formData.lastName].filter(Boolean).join(' ').trim();
-  }, [formData.firstName, formData.lastName]);
-
-  const prettyPhone = useMemo(() => {
-    if (!formData.phone) return '';
-    return `${formData.phonePrefix || ''} ${formData.phone}`.trim();
-  }, [formData.phonePrefix, formData.phone]);
-
   const prettyTreatments = useMemo(() => {
     const treatments = formData.treatments || [];
     if (!treatments.length) return t('common.none');
@@ -206,47 +145,88 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
       .map((tr) => t(`steps.treatments.options.${tr}.title`))
       .join(', ');
   }, [formData.treatments, t]);
+  const summaryRows = [
+    {
+      label: t('results.details.address'),
+      value: formData.address || t('common.notProvided'),
+    },
+    {
+      label: t('results.details.type'),
+      value: prettyFacade || t('common.notSpecified'),
+    },
+    {
+      label: t('results.details.surface'),
+      value: prettySurface,
+    },
+    {
+      label: t('results.details.finish'),
+      value: prettyFinish || t('common.notSpecified'),
+    },
+    {
+      label: t('results.details.timeline'),
+      value: prettyTimeline || t('common.notSpecified'),
+    },
+    {
+      label: t('results.details.treatments'),
+      value: prettyTreatments,
+    },
+  ];
 
-  const callbackStatus = formData.callDuringDay
-    ? t('pdf.callback.requested')
-    : t('pdf.callback.notRequested');
-
-  const fixedEstimateAmount = useMemo(
-    () => deriveFixedEstimateAmount(result, formData.surfaceArea),
-    [result, formData.surfaceArea]
+  const surfaceAreaValue = useMemo(
+    () => parseSurfaceAreaAverage(formData.surfaceArea),
+    [formData.surfaceArea]
   );
-  const fixedEstimateLabel = useMemo(
-    () => formatEur(fixedEstimateAmount, { maximumFractionDigits: 0 }),
-    [fixedEstimateAmount, locale]
+  const effectiveSurfaceArea = surfaceAreaValue ?? DEFAULT_SURFACE_AREA;
+  const pricePerM2 = useMemo(
+    () => getPricePerM2(formData.finish),
+    [formData.finish]
+  );
+  const [loanDurationMonths, setLoanDurationMonths] = useState<number>(36);
+  const [adjustedSurface, setAdjustedSurface] = useState<number>(effectiveSurfaceArea);
+  const [surfaceInput, setSurfaceInput] = useState<string>(String(effectiveSurfaceArea));
+
+  const handleSurfaceSlider = (value: number) => {
+    const clamped = clamp(value, MIN_SURFACE, MAX_SURFACE);
+    setAdjustedSurface(clamped);
+    setSurfaceInput(String(clamped));
+  };
+
+  const handleSurfaceInput = (raw: string) => {
+    setSurfaceInput(raw);
+    const num = parseInt(raw, 10);
+    if (!isNaN(num) && num >= MIN_SURFACE && num <= MAX_SURFACE) {
+      setAdjustedSurface(num);
+    }
+  };
+
+  const handleSurfaceBlur = () => {
+    const num = parseInt(surfaceInput, 10);
+    if (isNaN(num) || num < MIN_SURFACE) {
+      setAdjustedSurface(MIN_SURFACE);
+      setSurfaceInput(String(MIN_SURFACE));
+    } else if (num > MAX_SURFACE) {
+      setAdjustedSurface(MAX_SURFACE);
+      setSurfaceInput(String(MAX_SURFACE));
+    } else {
+      setAdjustedSurface(num);
+      setSurfaceInput(String(num));
+    }
+  };
+
+  const totalEstimate = useMemo(
+    () => roundToNearest(adjustedSurface * pricePerM2, 10),
+    [adjustedSurface, pricePerM2]
   );
 
-  const maxDurationMonths = useMemo(
-    () => getMaxDurationMonths(fixedEstimateAmount),
-    [fixedEstimateAmount]
-  );
-  const availableDurations = useMemo(() => {
-    const filtered = DURATION_OPTIONS.filter((m) => m <= maxDurationMonths);
-    return filtered.length ? filtered : [maxDurationMonths];
-  }, [maxDurationMonths]);
-
-  const [loanDurationMonths, setLoanDurationMonths] = useState<number>(() =>
-    Math.min(48, maxDurationMonths)
+  const totalEstimateLabel = useMemo(
+    () => formatTvac(totalEstimate),
+    [totalEstimate]
   );
 
-  useEffect(() => {
-    setLoanDurationMonths((prev) => clamp(prev, 1, maxDurationMonths));
-  }, [maxDurationMonths]);
-
-  const calcRate = useMemo(() => loanCalcRate(LOAN_TAEG), []);
-  const installment = useMemo(
-    () =>
-      calculateMonthlyInstallment(
-        fixedEstimateAmount,
-        loanDurationMonths,
-        LOAN_TAEG
-      ),
-    [fixedEstimateAmount, loanDurationMonths]
-  );
+  const monthlyInstallment = useMemo(() => {
+    if (!totalEstimate || !loanDurationMonths) return null;
+    return totalEstimate / loanDurationMonths;
+  }, [totalEstimate, loanDurationMonths]);
 
   return (
     <>
@@ -270,10 +250,10 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
               }
             />
             <div className="min-w-0">
-              <h1 className="truncate text-xl font-bold text-[#2D2A26] sm:text-2xl">
+              <h1 className="truncate text-2xl font-extrabold text-[#1F1B16] sm:text-3xl">
                 {t('results.title')}
               </h1>
-              <p className="text-xs text-[#6B5E4F] sm:text-sm">
+              <p className="text-sm font-medium text-[#5A4C3C]">
                 {t('results.subtitle')}
               </p>
             </div>
@@ -417,240 +397,154 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-[#eadfcb] bg-gradient-to-br from-[#fdf8f2] to-white p-4 shadow-sm">
+                <div className="rounded-2xl border border-[#eadfcb] bg-gradient-to-br from-[#fdf8f2] to-white p-5 shadow-sm">
+                  {/* Header */}
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-[#c4955e]">
                         {t('results.investment.title')}
                       </p>
-                      <p className="mt-1 text-xs text-[#6B5E4F]">
+                      <p className="mt-1 text-sm text-[#6B5E4F]">
                         {t('results.investment.subtitle')}
                       </p>
                     </div>
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-md">
-                      <Euro className="h-7 w-7" style={{ color: '#D4A574' }} />
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-white shadow-md">
+                      <Euro className="h-6 w-6" style={{ color: '#D4A574' }} />
                     </div>
                   </div>
 
-
-                  <div className="mt-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#6B5E4F]">
-                      {t('results.investment.toggleFinancing')}
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-baseline gap-x-2">
-                      <div className="text-4xl font-extrabold text-[#2D2A26]">
-                        {typeof installment === 'number'
-                          ? formatEur(installment ?? 0, {
-                              maximumFractionDigits: 2,
-                            })
-                          : '--'}
-                      </div>
-                      <div className="text-sm font-semibold text-[#6B5E4F]">
-                        {t('results.investment.installmentCaption')}
-                      </div>
-                    </div>
-
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-[#6B5E4F]">
-                      <div>
-                        <span className="font-semibold">
-                          {t('results.investment.financedAmount')}
-                        </span>{' '}
-                        {fixedEstimateLabel}
-                      </div>
-                      <div>
-                        <span className="font-semibold">
-                          {t('results.investment.duration')}
-                        </span>{' '}
-                        {loanDurationMonths} {t('common.months')}
-                      </div>
-                      <div>
-                        <span className="font-semibold">
-                          {t('results.investment.rate')}
-                        </span>{' '}
-                        {(LOAN_TAEG * 100).toFixed(2)}%
-                      </div>
-                      <div>
-                        <span className="font-semibold">
-                          {t('results.investment.calcRate')}
-                        </span>{' '}
-                        {(calcRate * 100).toFixed(2)}%
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                  {/* Surface area controls */}
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between gap-3">
                       <label
-                        className="text-xs font-semibold text-[#6B5E4F]"
-                        htmlFor="loan-duration"
+                        className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B5E4F]"
+                        htmlFor="surface-input"
                       >
-                        {t('results.investment.durationLabel')}
+                        {t('results.investment.adjustSurfaceLabel')}
                       </label>
-                      <select
-                        id="loan-duration"
-                        value={loanDurationMonths}
-                        onChange={(e) =>
-                          setLoanDurationMonths(Number(e.target.value))
-                        }
-                        className="rounded-lg border border-[#d4a574]/40 bg-white px-3 py-2 text-sm font-semibold text-[#2D2A26] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d4a574]/40"
-                      >
-                        {availableDurations.map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <details className="mt-3 rounded-xl border border-[#d4a574]/30 bg-white/60 p-3">
-                      <summary className="cursor-pointer text-xs font-semibold text-[#6B5E4F]">
-                        {t('results.investment.legalMaxSummary')}
-                      </summary>
-                      <div className="mt-2">
-                        <table className="w-full table-fixed text-xs text-[#2D2A26]">
-                          <thead>
-                            <tr className="text-left text-[#6B5E4F]">
-                              <th className="pb-2 pr-4 font-semibold">
-                                {t('results.investment.legalMax.amount')}
-                              </th>
-                              <th className="pb-2 font-semibold">
-                                {t('results.investment.legalMax.duration')}
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {LEGAL_MAX_DURATIONS.map((row) => {
-                              const range =
-                                row.max === Infinity
-                                  ? `${t('results.investment.legalMax.over')} ${formatEur(
-                                      row.min,
-                                      { maximumFractionDigits: 0 }
-                                    )}`
-                                  : `${formatEur(row.min, {
-                                      maximumFractionDigits: 0,
-                                    })} - ${formatEur(row.max, {
-                                      maximumFractionDigits: 0,
-                                    })}`;
-                              return (
-                                <tr
-                                  key={`${row.min}-${row.max}`}
-                                  className="border-t border-[#d4a574]/20"
-                                >
-                                  <td className="py-2 pr-4 break-words">
-                                    {range}
-                                  </td>
-                                  <td className="py-2">
-                                    {row.months} {t('common.months')}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                      <div className="flex items-baseline gap-1 rounded-xl border border-[#eadfcb] bg-white px-3 py-1.5 shadow-sm transition-colors focus-within:border-[#d4a574] focus-within:ring-2 focus-within:ring-[#d4a574]/20">
+                        <input
+                          id="surface-input"
+                          type="number"
+                          inputMode="numeric"
+                          min={MIN_SURFACE}
+                          max={MAX_SURFACE}
+                          value={surfaceInput}
+                          onChange={(e) => handleSurfaceInput(e.target.value)}
+                          onBlur={handleSurfaceBlur}
+                          className="w-14 bg-transparent text-right text-lg font-extrabold text-[#2D2A26] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        />
+                        <span className="text-sm font-semibold text-[#6B5E4F]">m{'\u00B2'}</span>
                       </div>
-                    </details>
+                    </div>
+                    <input
+                      id="surface-slider"
+                      type="range"
+                      min={MIN_SURFACE}
+                      max={MAX_SURFACE}
+                      step={SURFACE_STEP}
+                      value={adjustedSurface}
+                      onChange={(e) => handleSurfaceSlider(Number(e.target.value))}
+                      className="mt-3 w-full accent-[#d4a574]"
+                    />
+                    <div className="mt-1 flex items-center justify-between text-[10px] font-semibold text-[#6B5E4F]">
+                      <span>{MIN_SURFACE} m{'\u00B2'}</span>
+                      <span>{MAX_SURFACE} m{'\u00B2'}</span>
+                    </div>
                   </div>
 
-                  <div className="mt-4 border-t border-[#eadfcb] pt-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#6B5E4F]">
+                  {/* Total price */}
+                  <div className="mt-5 text-center">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-[#6B5E4F]">
                       {t('results.investment.toggleTotal')}
                     </p>
-                    <div className="mt-2 text-4xl font-extrabold text-[#2D2A26]">
-                      {fixedEstimateLabel}
-                    </div>
-                    <div className="mt-1 text-xs text-[#6B5E4F]">
-                      {t('results.investment.totalCaption')}
+                    <div className="mt-1 text-5xl font-extrabold tracking-tight text-[#1F1B16]">
+                      {totalEstimateLabel}
                     </div>
                   </div>
 
-                <div className="mt-3 text-xs text-[#6B5E4F]">
-                  {t('results.investment.disclaimer')}
-                </div>
+                  {/* Divider */}
+                  <div className="my-5 border-t border-[#eadfcb]" />
+
+                  {/* Monthly payment */}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#6B5E4F]">
+                      {t('results.investment.monthlyTitle')}
+                    </p>
+                    <span className="rounded-full border border-[#eadfcb] bg-white px-3 py-1 text-[10px] font-semibold text-[#6B5E4F]">
+                      {loanDurationMonths} {t('common.months')}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-baseline gap-x-2">
+                    <div className="text-3xl font-extrabold text-[#2D2A26]">
+                      {monthlyInstallment !== null
+                        ? formatEur(monthlyInstallment, {
+                            maximumFractionDigits: 2,
+                          })
+                        : '--'}
+                    </div>
+                    <div className="text-sm font-semibold text-[#6B5E4F]">
+                      {t('results.investment.perMonth')}
+                    </div>
+                  </div>
+                  <div className="mt-0.5 text-xs text-[#6B5E4F]">
+                    {t('results.investment.monthlyCaption', {
+                      months: loanDurationMonths,
+                    })}
+                  </div>
+
+                  {/* Duration slider */}
+                  <div className="mt-4">
+                    <label
+                      className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B5E4F]"
+                      htmlFor="loan-duration"
+                    >
+                      {t('results.investment.durationLabel')}
+                    </label>
+                    <input
+                      id="loan-duration"
+                      type="range"
+                      min={MIN_MONTHS}
+                      max={MAX_MONTHS}
+                      step={MONTH_STEP}
+                      value={loanDurationMonths}
+                      onChange={(e) =>
+                        setLoanDurationMonths(
+                          clamp(Number(e.target.value), MIN_MONTHS, MAX_MONTHS)
+                        )
+                      }
+                      className="mt-2 w-full accent-[#d4a574]"
+                    />
+                    <div className="mt-1 flex justify-between text-[10px] font-semibold text-[#6B5E4F]">
+                      <span>{MIN_MONTHS} {t('common.months')}</span>
+                      <span>{MAX_MONTHS} {t('common.months')}</span>
+                    </div>
+                  </div>
+
+                  {/* Disclaimer */}
+                  <div className="mt-5 text-[11px] text-[#6B5E4F]">
+                    {t('results.investment.disclaimer')}
+                  </div>
               </div>
 
               <div className="rounded-2xl border border-[#eadfcb] bg-white p-3 shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#6B5E4F]">
                   {t('results.summaryTitle')}
                 </p>
-                <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-[#2D2A26] sm:grid-cols-2 xl:grid-cols-1">
-                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                      {t('results.details.address')}
+                <div className="mt-3 divide-y divide-[#eadfcb] rounded-xl border border-[#eadfcb] bg-[#fdf8f2] text-xs text-[#2D2A26]">
+                  {summaryRows.map((row) => (
+                    <div
+                      key={row.label}
+                      className="flex items-start justify-between gap-3 px-3 py-2 transition hover:bg-white/70"
+                    >
+                      <span className="font-semibold text-[#6B5E4F]">
+                        {row.label}
+                      </span>
+                      <span className="text-right font-bold text-[#1F1B16]">
+                        {row.value}
+                      </span>
                     </div>
-                    <div className="mt-0.5 truncate font-semibold">
-                      {formData.address || t('common.notProvided')}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                      {t('results.details.type')}
-                    </div>
-                    <div className="mt-0.5 truncate font-semibold">
-                      {prettyFacade || t('common.notSpecified')}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                      {t('results.details.surface')}
-                    </div>
-                    <div className="mt-0.5 truncate font-semibold">
-                      {prettySurface}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                      {t('results.details.finish')}
-                    </div>
-                    <div className="mt-0.5 truncate font-semibold">
-                      {prettyFinish || t('common.notSpecified')}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                      {t('results.details.timeline')}
-                    </div>
-                    <div className="mt-0.5 truncate font-semibold">
-                      {prettyTimeline || t('common.notSpecified')}
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-2 text-[11px] text-[#6B5E4F]">
-                  <span className="font-semibold">
-                    {t('results.details.treatments')}
-                  </span>{' '}
-                  {prettyTreatments}
-                </div>
-                <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-[#2D2A26] sm:grid-cols-2 xl:grid-cols-1">
-                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                      {t('results.details.name')}
-                    </div>
-                    <div className="mt-0.5 truncate font-semibold">
-                      {fullName || t('common.notProvided')}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                      {t('results.details.email')}
-                    </div>
-                    <div className="mt-0.5 truncate font-semibold">
-                      {formData.email || t('common.notProvided')}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                      {t('results.details.phone')}
-                    </div>
-                    <div className="mt-0.5 truncate font-semibold">
-                      {prettyPhone || t('common.notProvided')}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-[#eadfcb] bg-[#fdf8f2] px-3 py-2">
-                    <div className="text-[10px] font-semibold text-[#6B5E4F]">
-                      {t('results.details.callback')}
-                    </div>
-                    <div className="mt-0.5 truncate font-semibold">
-                      {callbackStatus}
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
 

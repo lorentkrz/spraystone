@@ -28,8 +28,24 @@ export interface FormData {
 
 export type FacadeType = 'brick' | 'render' | 'concrete' | 'painted' | 'other' | '';
 export type Condition = 'cracks' | 'moss' | 'good' | 'unknown' | '';
-export type Finish = 'natural-stone' | 'smooth' | 'textured' | 'suggest' | 'other' | '';
-export type PreviewFinish = 'natural-stone' | 'smooth' | 'textured' | 'other';
+export type Finish =
+  | 'natural-stone'
+  | 'smooth'
+  | 'textured'
+  | 'gris-bleue'
+  | 'gris-bleue-nuancee'
+  | 'brick'
+  | 'suggest'
+  | 'other'
+  | '';
+export type PreviewFinish =
+  | 'natural-stone'
+  | 'smooth'
+  | 'textured'
+  | 'gris-bleue'
+  | 'gris-bleue-nuancee'
+  | 'brick'
+  | 'other';
 export type Treatment = 'water-repellent' | 'anti-stain' | 'none' | 'unknown';
 export type Timeline = 'asap' | '1-3months' | '>3months' | 'tbd' | '';
 
