@@ -108,7 +108,8 @@ const INITIAL_FORM_DATA: FormData = {
   phone: "",
   callDuringDay: false,
 };
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const IMG_MAX_DIMENSION = 2048;
+const IMG_JPEG_QUALITY = 0.82;
 // const GAME_BEFORE_IMAGE = "/game-before.jpg";
 // const GAME_AFTER_IMAGE = "/game-after.jpg";
 const SPRAYSTONE_REFERENCE_MAP: Record<string, string> = {
@@ -616,6 +617,36 @@ function App() {
     });
   };
 
+  const compressImage = (file: File): Promise<File> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > IMG_MAX_DIMENSION || height > IMG_MAX_DIMENSION) {
+          const scale = IMG_MAX_DIMENSION / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("canvas_unavailable"));
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return reject(new Error("compression_failed"));
+            const name = file.name.replace(/\.[^.]+$/, ".jpg");
+            resolve(new File([blob], name, { type: "image/jpeg" }));
+          },
+          "image/jpeg",
+          IMG_JPEG_QUALITY,
+        );
+      };
+      img.onerror = () => reject(new Error("image_load_failed"));
+      img.src = URL.createObjectURL(file);
+    });
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target;
     const file = input.files?.[0];
@@ -623,28 +654,24 @@ function App() {
 
     try {
       setError(null);
-      if (file.size > MAX_UPLOAD_BYTES) {
-        throw new Error("max_size");
-      }
       const isImageType = (file.type || "").toLowerCase().startsWith("image/");
       if (!isImageType && !isHeicFile(file)) {
         throw new Error("invalid_type");
       }
-      const normalizedFile = isHeicFile(file)
+      const converted = isHeicFile(file)
         ? await convertHeicToJpeg(file)
         : file;
-      setUploadedImage(normalizedFile);
+      const compressed = await compressImage(converted);
+      setUploadedImage(compressed);
       const reader = new FileReader();
       reader.onloadend = () => setImagePreview(reader.result as string);
-      reader.readAsDataURL(normalizedFile);
+      reader.readAsDataURL(compressed);
     } catch (err) {
       console.error("Unable to process image upload:", err);
       setUploadedImage(null);
       setImagePreview(null);
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg === "max_size") {
-        setError(t("errors.uploadTooLarge"));
-      } else if (msg === "invalid_type") {
+      if (msg === "invalid_type") {
         setError(t("errors.uploadInvalidType"));
       } else {
         setError(t("errors.uploadProcessFailed"));

@@ -182,7 +182,7 @@ export const fr = {
       title: 'Téléchargez une photo de votre façade actuelle',
       subtitle: 'Pour générer une visualisation avant/après',
       cta: 'Cliquez pour importer une photo',
-      formats: 'JPG, PNG, HEIC (max 10 Mo)',
+      formats: 'JPG, PNG, HEIC',
       previewAlt: 'Aperçu',
       remove: 'Supprimer la photo',
     },

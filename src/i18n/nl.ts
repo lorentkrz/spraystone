@@ -188,7 +188,7 @@ export const nl = {
       title: 'Upload een foto van je huidige gevel',
       subtitle: 'Voor een voor/na-visualisatie',
       cta: 'Klik om een foto te uploaden',
-      formats: 'JPG, PNG, HEIC (max 10MB)',
+      formats: 'JPG, PNG, HEIC',
       previewAlt: 'Voorbeeld',
       remove: 'Foto verwijderen',
     },

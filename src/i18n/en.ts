@@ -181,7 +181,7 @@ export const en = {
       title: 'Upload a photo of your current facade',
       subtitle: 'For generating a before/after visualization',
       cta: 'Click to upload photo',
-      formats: 'JPG, PNG, HEIC (Max 10MB)',
+      formats: 'JPG, PNG, HEIC',
       previewAlt: 'Preview',
       remove: 'Remove photo',
     },
