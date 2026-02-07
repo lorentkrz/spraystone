@@ -110,7 +110,6 @@ const INITIAL_FORM_DATA: FormData = {
 };
 const IMG_MAX_DIMENSION = 2048;
 const IMG_JPEG_QUALITY = 0.82;
-// const GAME_BEFORE_IMAGE = "/game-before.jpg";
 // const GAME_AFTER_IMAGE = "/game-after.jpg";
 const SPRAYSTONE_REFERENCE_MAP: Record<string, string> = {
   "natural-stone": "/Pierre de france..jpeg",
