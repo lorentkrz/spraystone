@@ -1711,7 +1711,7 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
                 <p className="text-sm text-[#6b5e4f]"></p>
                 <div className="flex gap-2">
                   {[
-                    { label: "Original", src: GAME_BEFORE_IMAGE },
+                    { label: "Original ", src: GAME_BEFORE_IMAGE },
                     { label: "Spraystone finish", src: GAME_AFTER_IMAGE },
                   ].map((thumb) => (
                     <div
