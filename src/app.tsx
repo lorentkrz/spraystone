@@ -1849,7 +1849,7 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
     loadingProgress || t("results.generationPopup.status");
 
   const resultsView = (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#F5F1E8] via-[#E8DCC8] to-[#fdf8f2]">
+    <div className="h-[100dvh] overflow-y-auto bg-gradient-to-br from-[#F5F1E8] via-[#E8DCC8] to-[#fdf8f2]">
       <ResultsPage
         formData={formData}
         imagePreview={imagePreview}
