@@ -740,9 +740,6 @@ function App() {
     const finishId =
       options?.finishId || ((formData.finish || "natural-stone") as FinishId);
     const finishDescription = finishMap[finishId] || finishMap["natural-stone"];
-    const treatments = formData.treatments?.length
-      ? formData.treatments.map((t) => TREATMENT_LABELS[t] || t).join(", ")
-      : "none";
     const area = (() => {
       const value = parseSurfaceAreaAverage(formData.surfaceArea);
       return isNaN(value) ? "unknown" : `${value} m\u00B2`;
@@ -756,8 +753,6 @@ function App() {
     const referenceInstruction = options?.hasReference
       ? "Use Image B as the exact Spraystone reference for tone, aggregate density, joint depth, and surface reflectance."
       : "If Image B is unavailable, approximate the Spraystone reference described below with matching tone, aggregate density, joint depth, and reflectance.";
-    const selectionJson = JSON.stringify(getSelectionContext({ finish: finishId }));
-
     const constraintSection = [
       "CRITICAL: The output MUST be the EXACT SAME building as Image A. Same architecture, same roofline, same window count and placement, same door position, same driveway, same landscaping, same camera angle. The ONLY change is the wall surface material.",
       "Do NOT redesign, reconstruct, or reimagine the building. This is a material/texture swap on the existing walls ONLY.",
