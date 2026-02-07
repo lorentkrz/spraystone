@@ -5,12 +5,12 @@ const cx = (...values: ClassValue[]): string =>
 
 export const selectableCardClass = (selected: boolean, className?: string) =>
   cx(
-    'relative rounded-2xl border-2 bg-white transition-all select-none',
+    'relative rounded-2xl border-2 transition-all select-none',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a574]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
     'active:scale-[0.99]',
     selected
-      ? 'border-[#b47a45] bg-[#fffaf2] shadow-sm ring-1 ring-[#b47a45]/55'
-      : 'border-[#eadfcb] hover:border-[#d4a574]/70 hover:shadow-md',
+      ? 'border-[#b47a45] bg-white shadow-md ring-1 ring-[#b47a45]/55'
+      : 'border-[#e5ddd0] bg-[#f4f0ea] opacity-75 hover:opacity-100 hover:border-[#d4a574]/70 hover:bg-[#faf7f3] hover:shadow-sm',
     className
   );
 

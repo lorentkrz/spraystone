@@ -39,7 +39,7 @@ const PROXY_IMAGE_ENDPOINT =
 const CRM_PUBLIC_ENDPOINT =
   import.meta.env.VITE_CRM_PUBLIC_ENDPOINT || "https://spraystone-api.azurewebsites.net";
 const IMAGE_GENERATION_ETA_SECONDS = Number(
-  import.meta.env.VITE_IMAGE_GENERATION_ETA_SECONDS || 40
+  import.meta.env.VITE_IMAGE_GENERATION_ETA_SECONDS || 59
 );
 type ImageGenerationSize = "1024x1024" | "1024x1536" | "1536x1024" | "auto";
 const IMAGE_GENERATION_SIZE = ((): ImageGenerationSize => {
@@ -199,7 +199,7 @@ function App() {
   const [hasCreatedOpportunity, setHasCreatedOpportunity] = useState(false);
   const [isSubmittingOpportunity, setIsSubmittingOpportunity] = useState(false);
   const [isImageGenerating, setIsImageGenerating] = useState(false);
-  const generationTotalSeconds = Math.max(1, IMAGE_GENERATION_ETA_SECONDS || 40);
+  const generationTotalSeconds = Math.max(1, IMAGE_GENERATION_ETA_SECONDS || 59);
   const [generationSecondsRemaining, setGenerationSecondsRemaining] = useState(
     generationTotalSeconds
   );
@@ -758,49 +758,43 @@ function App() {
       : "If Image B is unavailable, approximate the Spraystone reference described below with matching tone, aggregate density, joint depth, and reflectance.";
     const selectionJson = JSON.stringify(getSelectionContext({ finish: finishId }));
 
-    const materialStyleSection = [
-      referenceInstruction,
-      `Target look: ${finishLabel} - ${finishDescription}.`,
-      finishId === "brick"
-        ? "If a brick/masonry pattern is used, keep a realistic brick scale (~ 21 x 6.5 cm) with consistent mortar joints."
-        : "Block scale ≈ 25 × 8 cm with tight joints, deep mortar lines, and natural variation around reveals.",
-      "Surface character: matte mineral texture with subtle aggregate sparkle and crisp transitions around windows and doors.",
-      "If scale ambiguity occurs, keep the pattern scale realistic and consistent across the full facade.",
+    const constraintSection = [
+      "CRITICAL: The output MUST be the EXACT SAME building as Image A. Same architecture, same roofline, same window count and placement, same door position, same driveway, same landscaping, same camera angle. The ONLY change is the wall surface material.",
+      "Do NOT redesign, reconstruct, or reimagine the building. This is a material/texture swap on the existing walls ONLY.",
+      "Preserve every architectural element pixel-perfectly: roof shape, window frames, glass, doors, trims, gutters, railings, steps, garage, chimneys.",
+      "Preserve all surroundings exactly: sky, trees, grass, driveway, cars, shadows, people.",
+      "Maintain identical framing, crop, aspect ratio, camera angle, focal length, and perspective.",
+      "Replace ONLY the exterior wall surfaces (brick, render, plaster, painted areas) with the Spraystone material described below.",
+      "Lighting, shadows, and reflections must stay consistent with the original photo.",
+      "Output must look like a real photo, not a 3D render or illustration.",
     ]
       .map((line) => `- ${line}`)
       .join("\n");
 
-    const constraintSection = [
-      "Preserve the full framing of Image A: no crop, zoom, rotate, or change in aspect ratio.",
-      "Preserve all architecture, proportions, rooflines, windows, doors, trims, railings, and surroundings exactly as in Image A.",
-      "Preserve all architectural geometry, framing, and fenestration 1:1 from Image A.",
-      "Replace only the exterior wall surfaces (brick, render, plaster, painted areas) with the Spraystone material.",
-      "Do not modify window frames, glass reflections, landscaping, or sky.",
-      "Do not add or remove people, vehicles, plants, furniture, or any new scene elements.",
-      "Maintain camera angle, focal length, and perspective identical to Image A.",
-      "Lighting must remain natural daylight with soft shadows and no HDR bloom.",
-      "Keep fine details (mortar lines, sills, joints, edges, stains) crisp and physically plausible—avoid plastic smoothing.",
-      "Ensure texture scale is consistent and shading is physically plausible.",
-      "Final output must read as a real renovation photo (photoreal), not an illustration or 3D render.",
+    const materialSection = [
+      referenceInstruction,
+      `Target finish: ${finishLabel} — ${finishDescription}.`,
+      finishId === "brick"
+        ? "Brick scale ~21x6.5cm with consistent mortar joints."
+        : "Block scale ~25x8cm with tight joints and natural variation around reveals.",
+      "Matte mineral texture, crisp transitions around windows and doors.",
     ]
       .map((line) => `- ${line}`)
       .join("\n");
 
     return [
-      "TASK:",
-      "Edit Image A (user-uploaded building facade) by applying the Spraystone material from Image B to replace only the wall finish.",
-      `Project details: Facade type ${facade}, condition ${condition}, estimated surface ${area}, requested treatments: ${treatments}, desired finish: ${finishLabel}.`,
-      "MATERIAL & STYLE:",
-      materialStyleSection,
-      "SITE CONTEXT (from user selection):",
-      selectionJson,
-      "CONSTRAINTS:",
+      "TASK: RETEXTURE the walls of the building in Image A using the Spraystone material from Image B. This is an in-place material swap — NOT a redesign.",
+      "",
+      "IDENTITY PRESERVATION (HIGHEST PRIORITY):",
       constraintSection,
-      "OUTPUT:",
-      "Produce a single high-resolution photorealistic image matching Image A's framing and aspect ratio, showing Image A's facade coated with the Spraystone finish from Image B, seamlessly blended and tone-matched.",
-      "END NOTE:",
-      "Final result = Image A edited using material cues from Image B.",
-    ].join("\n\n");
+      "",
+      "MATERIAL TO APPLY:",
+      materialSection,
+      "",
+      `CONTEXT: ${facade}, ${condition}, ~${area}, finish: ${finishLabel}.`,
+      "",
+      "OUTPUT: A single photorealistic image of the SAME building from Image A, identical in every way except the wall surfaces now show the Spraystone finish from Image B.",
+    ].join("\n");
   };
   const generatePrompt = () => {
     return `You are a facade renovation expert for Spraystone. Analyze the provided facade image and give a SHORT, practical estimate.
@@ -1668,7 +1662,7 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
       : "step-animate-backward";
   const mainForm = (
     <div
-      className="relative min-h-[100dvh] overflow-x-hidden p-2 sm:p-6 lg:p-10"
+      className="relative min-h-[100dvh] p-2 sm:p-6 lg:p-10"
       style={{
         background: "linear-gradient(135deg, #F5F1E8 0%, #E8DCC8 100%)",
       }}
@@ -1841,7 +1835,7 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
     loadingProgress || t("results.generationPopup.status");
 
   const resultsView = (
-    <div className="min-h-[100dvh] overflow-x-hidden bg-gradient-to-br from-[#F5F1E8] via-[#E8DCC8] to-[#fdf8f2]">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-[#F5F1E8] via-[#E8DCC8] to-[#fdf8f2]">
       <ResultsPage
         formData={formData}
         imagePreview={imagePreview}
