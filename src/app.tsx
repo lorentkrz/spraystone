@@ -810,8 +810,11 @@ function App() {
       "OUTPUT: A single photorealistic image of the SAME building from Image A, identical in every way except the wall surfaces now show the Spraystone finish from Image B.",
     ].join("\n");
   };
+  const LANG_NAMES: Record<string, string> = { en: "English", fr: "French", nl: "Dutch" };
   const generatePrompt = () => {
     return `You are a facade renovation expert for Spraystone. Analyze the provided facade image and give a SHORT, practical estimate.
+
+**IMPORTANT: Write your ENTIRE response in ${LANG_NAMES[lang] || "French"}.**
 
 **CLIENT INFO:**
 - Address: ${formData.address || "Not provided"}
