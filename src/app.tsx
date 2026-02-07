@@ -168,13 +168,6 @@ const CONDITION_LABELS: Record<string, string> = {
   unknown: "Condition unknown",
 };
 
-const TREATMENT_LABELS: Record<string, string> = {
-  "water-repellent": "Water-repellent protection",
-  "anti-stain": "Anti-stain / anti-pollution",
-  none: "No additional treatments",
-  unknown: "To be decided with an expert",
-};
-
 const CRM_CULTURE_BY_LANG = {
   en: "en-GB",
   fr: "fr-FR",
