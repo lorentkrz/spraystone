@@ -7,15 +7,16 @@ app.use(express.json({ limit: '20mb' }));
 
 // POST /api/apply-spraystone
 // Body (single):
-//   { imageBase64: string (no data: prefix), imageMimeType?: string, prompt: string, size?: '1024x1024'|'512x512'|'256x256', materialReferenceBase64?: string, materialReferenceMimeType?: string, selections?: any }
+//   { imageBase64: string (no data: prefix), imageMimeType?: string, prompt: string, size?: '1024x1024'|'1024x1536'|'1536x1024'|'auto'|'512x512'|'256x256', inputFidelity?: 'high'|'low', materialReferenceBase64?: string, materialReferenceMimeType?: string, selections?: any }
 // Body (batch):
-//   { imageBase64: string, imageMimeType?: string, prompt: string, size?: '1024x1024'|'512x512'|'256x256', finishIds: string[], materialReferences: Array<{ base64: string, mimeType?: string }> }
+//   { imageBase64: string, imageMimeType?: string, prompt: string, size?: '1024x1024'|'1024x1536'|'1536x1024'|'auto'|'512x512'|'256x256', inputFidelity?: 'high'|'low', finishIds: string[], materialReferences: Array<{ base64: string, mimeType?: string }> }
 app.post('/api/apply-spraystone', async (req, res) => {
   try {
     const {
       imageBase64,
       imageMimeType,
       prompt,
+      inputFidelity,
       materialReferenceBase64,
       materialReferenceMimeType,
       materialReferences,
@@ -31,8 +32,8 @@ app.post('/api/apply-spraystone', async (req, res) => {
       return res.status(500).json({ error: 'OPENAI_API_KEY is not set on the server' });
     }
 
-    const allowedSizes = new Set(['1024x1024', '512x512', '256x256']);
-    const safeSize = typeof size === 'string' && allowedSizes.has(size) ? size : '512x512';
+    const allowedSizes = new Set(['1024x1024', '1024x1536', '1536x1024', 'auto', '512x512', '256x256']);
+    const safeSize = typeof size === 'string' && allowedSizes.has(size) ? size : '1024x1024';
 
     const isBatch =
       Array.isArray(finishIds) &&
@@ -46,6 +47,8 @@ app.post('/api/apply-spraystone', async (req, res) => {
     const promptWithContext = selectionJson ? `${prompt} Selection context JSON: ${selectionJson}` : prompt;
     const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1.5';
     const outputCount = isBatch ? finishIds.length : 1;
+    const safeInputFidelity =
+      inputFidelity === 'low' || inputFidelity === 'high' ? inputFidelity : 'high';
 
     const inferExt = (mime) => {
       const safe = String(mime || '').toLowerCase();
@@ -64,6 +67,9 @@ app.post('/api/apply-spraystone', async (req, res) => {
     form.append('prompt', promptWithContext);
     form.append('size', safeSize);
     form.append('n', String(outputCount));
+    if (model.startsWith('gpt-image')) {
+      form.append('input_fidelity', safeInputFidelity);
+    }
     if (!model.startsWith('gpt-image')) {
       form.append('response_format', 'b64_json');
     }
@@ -109,7 +115,23 @@ app.post('/api/apply-spraystone', async (req, res) => {
       body: form
     });
 
-    const json = await response.json();
+    const responseText = await response.text();
+    let json = null;
+    try {
+      json = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      json = { raw: responseText };
+    }
+
+    if (!response.ok) {
+      return res
+        .status(response.status)
+        .json({
+          error: 'OpenAI image edit failed',
+          details: json,
+          openaiRequestId: response.headers.get('x-request-id') || null
+        });
+    }
 
     const data = Array.isArray(json?.data) ? json.data : [];
 

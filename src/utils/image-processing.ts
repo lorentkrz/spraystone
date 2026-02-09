@@ -40,6 +40,7 @@ export const letterboxToFile = async (
     mimeType?: string;
     quality?: number;
     background?: string;
+    useBlurBackdrop?: boolean;
   } = {}
 ): Promise<LetterboxResult> => {
   const img = await loadImage(src);
@@ -67,15 +68,17 @@ export const letterboxToFile = async (
   ctx.fillStyle = options.background ?? '#fdf8f2';
   ctx.fillRect(0, 0, targetWidth, targetHeight);
 
-  const blurPx = clamp(Math.min(targetWidth, targetHeight) / 18, 10, 28);
-  ctx.save();
-  ctx.filter = `blur(${blurPx}px)`;
-  ctx.globalAlpha = 0.9;
-  ctx.drawImage(img, coverX, coverY, coverW, coverH);
-  ctx.restore();
+  if (options.useBlurBackdrop !== false) {
+    const blurPx = clamp(Math.min(targetWidth, targetHeight) / 18, 10, 28);
+    ctx.save();
+    ctx.filter = `blur(${blurPx}px)`;
+    ctx.globalAlpha = 0.9;
+    ctx.drawImage(img, coverX, coverY, coverW, coverH);
+    ctx.restore();
 
-  ctx.fillStyle = 'rgba(253,248,242,0.10)';
-  ctx.fillRect(0, 0, targetWidth, targetHeight);
+    ctx.fillStyle = 'rgba(253,248,242,0.10)';
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
+  }
 
   const containScale = Math.min(targetWidth / imgW, targetHeight / imgH);
   const drawW = imgW * containScale;
@@ -139,4 +142,3 @@ export const cropDataUrl = async (
   const quality = options.quality ?? 0.92;
   return output.toDataURL(mimeType, quality);
 };
-

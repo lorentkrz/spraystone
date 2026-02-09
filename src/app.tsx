@@ -16,7 +16,7 @@ import { GenerationModal } from "@/components/generation-modal";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useI18n } from "@/i18n";
 import type { FormData, PreviewFinish, RetryOptions, Treatment } from "@/types";
-import { cropDataUrl, letterboxToFile } from "@/utils/image-processing";
+import { cropDataUrl, letterboxToFile, measureImage } from "@/utils/image-processing";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 const DEV_MODE = import.meta.env.VITE_DEV_MODE === "false";
@@ -53,23 +53,9 @@ const IMAGE_GENERATION_SIZE = ((): ImageGenerationSize => {
     return candidate;
   return "1024x1024";
 })();
-
-const IMAGE_GENERATION_TARGET = (() => {
-  if (IMAGE_GENERATION_SIZE === "1024x1536") return { width: 1024, height: 1536 };
-  if (IMAGE_GENERATION_SIZE === "1536x1024") return { width: 1536, height: 1024 };
-  return { width: 1024, height: 1024 };
-})();
-
-const normalizeImageSize = (
-  size: ImageGenerationSize
-): Exclude<ImageGenerationSize, "auto"> => {
-  if (size === "auto") return "1024x1024";
-  return size;
-};
-const IMAGE_GENERATION_SIZE_FOR_API = normalizeImageSize(IMAGE_GENERATION_SIZE);
-
+const IMAGE_EDIT_INPUT_FIDELITY = "high";
 const GENERATION_UPLOAD_MIME_TYPE = "image/jpeg";
-const GENERATION_UPLOAD_QUALITY = 0.86;
+const GENERATION_UPLOAD_QUALITY = 0.9;
 
 type FinishId = Exclude<FormData["finish"], "">;
 type GeneratedImagesByFinish = Partial<Record<FinishId, string>>;
@@ -112,21 +98,17 @@ const IMG_MAX_DIMENSION = 2048;
 const IMG_JPEG_QUALITY = 0.82;
 // const GAME_AFTER_IMAGE = "/game-after.jpg";
 const SPRAYSTONE_REFERENCE_MAP: Record<string, string> = {
-  "natural-stone": "/Pierre de france..jpeg",
-  smooth: "/Pierre des gres beige brun.jpeg",
-  textured: "/Pierre des gres claire.jpeg",
-  "gris-bleue": "/Pierre des gres blau.jpeg",
-  "gris-bleue-nuancee": "/Pierre gris bleue nuance.jpeg",
+  "natural-stone": "/finishes/Pierre de france.png",
+  smooth: "/finishes/Pierre de grès beige-brun.png",
+  textured: "/finishes/Pierre de grès claire.png",
+  "gris-bleue": "/finishes/Pierre gris bleue.png",
+  "gris-bleue-nuancee": "/finishes/Pierre gris bleue nuancée.png",
   brick: "/brick-warm.jpg",
-  other: "/WhatsApp Image 2026-01-21 at 15.46.04.jpeg",
-  suggest: "/WhatsApp Image 2026-01-21 at 15.46.04.jpeg",
-  render: "/WhatsApp Image 2026-01-21 at 15.47.09.jpeg",
-  concrete: "/WhatsApp Image 2026-01-21 at 15.46.04 (1).jpeg",
-  painted: "/WhatsApp Image 2026-01-21 at 15.46.04.jpeg",
+  other: "/finishes/Pierre de france.png",
 };
 
 const DEFAULT_REFERENCE_TEXTURE =
-  "/Pierre de france..jpeg";
+  "/finishes/Pierre de france.png";
 
 const FINISH_LABELS: Record<string, string> = {
   "natural-stone": "Pierre de France finish",
@@ -770,12 +752,14 @@ function App() {
       FINISH_LABELS[finishId as keyof typeof FINISH_LABELS] ||
       FINISH_LABELS["natural-stone"];
     const referenceInstruction = options?.hasReference
-      ? "Use Image B as the exact Spraystone reference for tone, aggregate density, joint depth, and surface reflectance."
+      ? "Use Image B as a texture-only reference for tone, aggregate density, joint depth, and surface reflectance. Ignore any structure in Image B."
       : "If Image B is unavailable, approximate the Spraystone reference described below with matching tone, aggregate density, joint depth, and reflectance.";
     const constraintSection = [
       "CRITICAL: The output MUST be the EXACT SAME building as Image A. Same architecture, same roofline, same window count and placement, same door position, same driveway, same landscaping, same camera angle. The ONLY change is the wall surface material.",
       "Do NOT redesign, reconstruct, or reimagine the building. This is a material/texture swap on the existing walls ONLY.",
-      "Preserve every architectural element pixel-perfectly: roof shape, window frames, glass, doors, trims, gutters, railings, steps, garage, chimneys.",
+      "Preserve every architectural element pixel-perfectly: roof shape, ridge/kulmi, window frames, glass, doors, trims, gutters, railings, steps, garage, chimneys.",
+      "Do NOT remove, replace, move, or swap any doors or windows.",
+      "Do NOT alter roof geometry, roofing material, ridge caps, or gutters.",
       "Preserve all surroundings exactly: sky, trees, grass, driveway, cars, shadows, people.",
       "Maintain identical framing, crop, aspect ratio, camera angle, focal length, and perspective.",
       "Replace ONLY the exterior wall surfaces (brick, render, plaster, painted areas) with the Spraystone material described below.",
@@ -792,6 +776,7 @@ function App() {
         ? "Brick scale ~21x6.5cm with consistent mortar joints."
         : "Block scale ~25x8cm with tight joints and natural variation around reveals.",
       "Matte mineral texture, crisp transitions around windows and doors.",
+      "Reference image is for MATERIAL ONLY, never for architecture or object layout.",
     ]
       .map((line) => `- ${line}`)
       .join("\n");
@@ -804,6 +789,10 @@ function App() {
       "",
       "MATERIAL TO APPLY:",
       materialSection,
+      "",
+      "NEGATIVE INSTRUCTIONS:",
+      "- Do not inpaint, edit, or regenerate non-wall objects.",
+      "- Do not introduce, remove, or reposition windows/doors even slightly.",
       "",
       `CONTEXT: ${facade}, ${condition}, ~${area}, finish: ${finishLabel}.`,
       "",
@@ -850,24 +839,45 @@ Provide a CONCISE analysis (max 400 words) with:
 
 Keep it SHORT, practical, and focused on the visual transformation and pricing. No long letters or formalities.`;
   };
+  const resolveGenerationSizeForUpload = async (
+    previewDataUrl: string
+  ): Promise<Exclude<ImageGenerationSize, "auto">> => {
+    if (IMAGE_GENERATION_SIZE !== "auto") return IMAGE_GENERATION_SIZE;
+    const { width, height } = await measureImage(previewDataUrl);
+    const ratio = width / Math.max(1, height);
+    if (ratio > 1.15) return "1536x1024";
+    if (ratio < 1 / 1.15) return "1024x1536";
+    return "1024x1024";
+  };
+
   const prepareUploadForGeneration = async () => {
     if (!uploadedImage || !imagePreview) {
       throw new Error("missing_upload");
     }
+    const outputSize = await resolveGenerationSizeForUpload(imagePreview);
+    const target =
+      outputSize === "1536x1024"
+        ? { width: 1536, height: 1024 }
+        : outputSize === "1024x1536"
+        ? { width: 1024, height: 1536 }
+        : { width: 1024, height: 1024 };
+
     const baseName = (uploadedImage.name || "spraystone-upload")
       .replace(/\.(heic|heif|jpe?g|png|webp)$/i, "")
       .trim();
-    const prepared = await letterboxToFile(
-      imagePreview,
-      IMAGE_GENERATION_TARGET,
-      {
-        fileName: `${baseName || "spraystone-upload"}-prepared.jpg`,
-        mimeType: GENERATION_UPLOAD_MIME_TYPE,
-        quality: GENERATION_UPLOAD_QUALITY,
-        background: "#fdf8f2",
-      }
-    );
-    return { uploadForGeneration: prepared.file, cropRect: prepared.crop };
+    const prepared = await letterboxToFile(imagePreview, target, {
+      fileName: `${baseName || "spraystone-upload"}-prepared.jpg`,
+      mimeType: GENERATION_UPLOAD_MIME_TYPE,
+      quality: GENERATION_UPLOAD_QUALITY,
+      background: "#f7f3eb",
+      useBlurBackdrop: false,
+    });
+
+    return {
+      uploadForGeneration: prepared.file,
+      outputSize,
+      cropRect: prepared.crop,
+    };
   };
 
   const createProgressReporter = (options?: { prefix?: string }) => {
@@ -880,7 +890,16 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
 
   const generateImageForFinish = async (
     finish: FinishId,
-    prepared: { uploadForGeneration: File; cropRect: any },
+    prepared: {
+      uploadForGeneration: File;
+      outputSize: Exclude<ImageGenerationSize, "auto">;
+      cropRect: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      };
+    },
     reportProgress: (message: string, progressHint?: number) => void
   ): Promise<string | null> => {
     reportProgress(t("progress.image.lockingReference"), 18);
@@ -904,7 +923,17 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
     const selectionJson = JSON.stringify(selectionContext);
     reportProgress(t("progress.image.sendingReferences"), 45);
 
-    const { uploadForGeneration, cropRect } = prepared;
+    const { uploadForGeneration, outputSize, cropRect } = prepared;
+    const restoreOriginalFraming = async (rawDataUrl: string) => {
+      try {
+        return await cropDataUrl(rawDataUrl, cropRect, {
+          mimeType: "image/jpeg",
+          quality: 0.92,
+        });
+      } catch {
+        return rawDataUrl;
+      }
+    };
     let output: string | null = null;
 
     if (IMAGE_PROVIDER === "azure-openai") {
@@ -917,7 +946,7 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
       try {
         const form = new FormData();
         form.append("prompt", imagePrompt);
-        form.append("size", IMAGE_GENERATION_SIZE_FOR_API);
+        form.append("size", outputSize);
         form.append("n", "1");
         form.append("response_format", "b64_json");
         form.append("image", uploadForGeneration);
@@ -958,10 +987,16 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
       }
 
       if (!b64) {
+        const azureFallbackSize =
+          outputSize === "1536x1024"
+            ? "1792x1024"
+            : outputSize === "1024x1536"
+            ? "1024x1792"
+            : "1024x1024";
         const payload = {
           model: "dall-e-3",
           prompt: imagePrompt,
-          size: "1024x1024",
+          size: azureFallbackSize,
           style: "vivid",
           quality: "standard",
           n: 1,
@@ -1008,12 +1043,7 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
       }
 
       if (b64) {
-        const raw = `data:image/png;base64,${b64}`;
-        try {
-          output = await cropDataUrl(raw, cropRect);
-        } catch {
-          output = raw;
-        }
+        output = await restoreOriginalFraming(`data:image/png;base64,${b64}`);
         reportProgress(t("progress.complete"), 96);
       } else {
         output = null;
@@ -1031,7 +1061,10 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
       const form = new FormData();
       form.append("model", OPENAI_IMAGE_MODEL);
       form.append("prompt", promptWithContext);
-      form.append("size", IMAGE_GENERATION_SIZE_FOR_API);
+      form.append("size", outputSize);
+      if (OPENAI_IMAGE_MODEL.startsWith("gpt-image")) {
+        form.append("input_fidelity", IMAGE_EDIT_INPUT_FIDELITY);
+      }
       if (!OPENAI_IMAGE_MODEL.startsWith("gpt-image")) {
         form.append("response_format", "b64_json");
       }
@@ -1084,11 +1117,7 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
       } else {
         return null;
       }
-      try {
-        output = await cropDataUrl(raw, cropRect);
-      } catch {
-        output = raw;
-      }
+      output = await restoreOriginalFraming(raw);
       return output;
     }
 
@@ -1103,7 +1132,8 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
               imageBase64: base64,
               imageMimeType: uploadForGeneration.type,
               prompt: imagePrompt,
-              size: IMAGE_GENERATION_SIZE_FOR_API,
+              size: outputSize,
+              inputFidelity: IMAGE_EDIT_INPUT_FIDELITY,
               materialReferenceBase64,
               materialReferenceMimeType,
               selections: selectionContext,
@@ -1124,12 +1154,7 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
 
       const b64 = resp?.output;
       if (!b64) return null;
-      const raw = `data:image/png;base64,${b64}`;
-      try {
-        output = await cropDataUrl(raw, cropRect);
-      } catch {
-        output = raw;
-      }
+      output = await restoreOriginalFraming(`data:image/png;base64,${b64}`);
       return output;
     }
 
@@ -1159,12 +1184,7 @@ Keep it SHORT, practical, and focused on the visual transformation and pricing. 
       if (part.inlineData) {
         const imageData = part.inlineData.data;
         const mimeType = part.inlineData.mimeType || "image/png";
-        const raw = `data:${mimeType};base64,${imageData}`;
-        try {
-          output = await cropDataUrl(raw, cropRect);
-        } catch {
-          output = raw;
-        }
+        output = await restoreOriginalFraming(`data:${mimeType};base64,${imageData}`);
         return output;
       }
     }

@@ -15,31 +15,31 @@ interface FinishCardMeta {
 const finishCards: FinishCardMeta[] = [
   {
     id: 'natural-stone',
-    image: '/Pierre de france..jpeg',
+    image: '/finishes/Pierre de france.png',
     icon: <Gem className="h-5 w-5" />,
     palette: ['#D9D4C9', '#B6B0A3', '#8F897B'],
   },
   {
     id: 'smooth',
-    image: '/Pierre des gres beige brun.jpeg',
+    image: '/finishes/Pierre de grès beige-brun.png',
     icon: <Waves className="h-5 w-5" />,
     palette: ['#DDD2C3', '#BDA788', '#8C7561'],
   },
   {
     id: 'textured',
-    image: '/Pierre des gres claire.jpeg',
+    image: '/finishes/Pierre de grès claire.png',
     icon: <Sparkles className="h-5 w-5" />,
     palette: ['#E3DACB', '#C7B69D', '#948167'],
   },
   {
     id: 'gris-bleue',
-    image: '/Pierre des gres blau.jpeg',
+    image: '/finishes/Pierre gris bleue.png',
     icon: <Waves className="h-5 w-5" />,
     palette: ['#D6DCE2', '#9EA9B6', '#6D7A87'],
   },
   {
     id: 'gris-bleue-nuancee',
-    image: '/Pierre gris bleue nuance.jpeg',
+    image: '/finishes/Pierre gris bleue nuancée.png',
     icon: <Sparkles className="h-5 w-5" />,
     palette: ['#DCE0E4', '#A9B0B8', '#707982'],
   },
@@ -51,7 +51,7 @@ const finishCards: FinishCardMeta[] = [
   },
   {
     id: 'other',
-    image: '/WhatsApp Image 2026-01-21 at 15.46.04.jpeg',
+    image: '/finishes/Pierre de france.png',
     icon: <Compass className="h-5 w-5" />,
     palette: ['#D7D0C3', '#B6AB98', '#8A7A64'],
   },
