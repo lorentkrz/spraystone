@@ -1,6 +1,5 @@
 import React from 'react';
 import type { PreviewFinish, Step5FinishProps } from '@/types';
-import { Gem, Waves, Sparkles, Compass } from 'lucide-react';
 import { useI18n } from '@/i18n';
 import { SelectionMark } from '@/components/selection-mark';
 import { selectableCardClass } from '@/utils/selectable';
@@ -8,7 +7,6 @@ import { selectableCardClass } from '@/utils/selectable';
 interface FinishCardMeta {
   id: PreviewFinish;
   image: string;
-  icon: React.ReactNode;
   palette: string[];
 }
 
@@ -16,43 +14,36 @@ const finishCards: FinishCardMeta[] = [
   {
     id: 'natural-stone',
     image: '/finishes/Pierre de france.png',
-    icon: <Gem className="h-5 w-5" />,
     palette: ['#D9D4C9', '#B6B0A3', '#8F897B'],
   },
   {
     id: 'smooth',
-    image: '/finishes/Pierre de grès beige-brun.png',
-    icon: <Waves className="h-5 w-5" />,
+    image: '/finishes/Pierre de gr\u00E8s beige-brun.png',
     palette: ['#DDD2C3', '#BDA788', '#8C7561'],
   },
   {
     id: 'textured',
-    image: '/finishes/Pierre de grès claire.png',
-    icon: <Sparkles className="h-5 w-5" />,
+    image: '/finishes/Pierre de gr\u00E8s claire.png',
     palette: ['#E3DACB', '#C7B69D', '#948167'],
   },
   {
     id: 'gris-bleue',
     image: '/finishes/Pierre gris bleue.png',
-    icon: <Waves className="h-5 w-5" />,
     palette: ['#D6DCE2', '#9EA9B6', '#6D7A87'],
   },
   {
     id: 'gris-bleue-nuancee',
-    image: '/finishes/Pierre gris bleue nuancée.png',
-    icon: <Sparkles className="h-5 w-5" />,
+    image: '/finishes/Pierre gris bleue nuanc\u00E9e.png',
     palette: ['#DCE0E4', '#A9B0B8', '#707982'],
   },
   {
     id: 'brick',
     image: '/brick-warm.jpg',
-    icon: <Compass className="h-5 w-5" />,
     palette: ['#C97848', '#AF5E35', '#7B3F24'],
   },
   {
     id: 'other',
     image: '/finishes/Pierre de france.png',
-    icon: <Compass className="h-5 w-5" />,
     palette: ['#D7D0C3', '#B6AB98', '#8A7A64'],
   },
 ];
@@ -81,7 +72,6 @@ export const Step5Finish: React.FC<Step5FinishProps> = ({
           const keyBase = `steps.finish.options.${card.id}`;
           const title = t(`${keyBase}.title`);
           const subtitle = t(`${keyBase}.subtitle`);
-          const bestFor = t(`${keyBase}.bestFor`);
           const isSelected = selectedFinish === card.id;
 
           return (
@@ -101,16 +91,11 @@ export const Step5Finish: React.FC<Step5FinishProps> = ({
                   alt={t('steps.finish.sampleAlt', { title })}
                   className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                 />
-                <span className="absolute bottom-3 left-3 max-w-[85%] truncate rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-gray-700">
-                  {bestFor}
-                </span>
               </div>
 
               <div className="flex flex-1 flex-col justify-between p-3 sm:p-4">
                 <div>
-                  <p className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                    {card.icon} {title}
-                  </p>
+                  <p className="text-sm font-semibold text-gray-900">{title}</p>
                   <p className="line-clamp-2 text-sm text-gray-600">{subtitle}</p>
                 </div>
 

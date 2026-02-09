@@ -1699,12 +1699,12 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
       : "step-animate-backward";
   const mainForm = (
     <div
-      className="relative min-h-[100dvh] p-2 sm:p-6 lg:p-10"
+      className="relative min-h-[100dvh] overflow-y-auto p-2 sm:p-6 lg:p-10"
       style={{
         background: "linear-gradient(135deg, #F5F1E8 0%, #E8DCC8 100%)",
       }}
     >
-      <div className="mx-auto flex w-full max-w-6xl flex-col xl:h-full">
+      <div className="mx-auto flex w-full max-w-6xl flex-col">
         <div className="mb-2 grid flex-shrink-0 grid-cols-[1fr,auto,1fr] items-center sm:mb-3">
           <div />
           <img
@@ -1720,9 +1720,9 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
           </div>
         </div>
 
-        <div className="relative flex min-h-0 flex-1 flex-col rounded-3xl border border-[#d4a574]/40 bg-white shadow-2xl">
+        <div className="relative flex flex-1 flex-col rounded-3xl border border-[#d4a574]/40 bg-white shadow-2xl">
           <div className="pointer-events-none absolute bottom-0 left-6 h-32 w-32 rounded-full bg-[#f5f1e8]/70 blur-2xl" />
-          <div className="relative flex min-h-0 flex-1 flex-col p-4 sm:p-6 lg:p-8">
+          <div className="relative flex flex-1 flex-col p-4 sm:p-6 lg:p-8">
             <div className="flex-shrink-0">
               <StepIndicator currentStep={currentStep} totalSteps={totalSteps} />
             </div>
@@ -1763,10 +1763,10 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
               </button>
             </div> */}
 
-            <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex flex-1 flex-col">
               <div
                 key={currentStep}
-                className={`mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col step-panel ${stepAnimationClass}`}
+                className={`mx-auto flex w-full max-w-5xl flex-1 flex-col step-panel ${stepAnimationClass}`}
               >
                 {renderStep()}
               </div>
@@ -1872,7 +1872,7 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
     loadingProgress || t("results.generationPopup.status");
 
   const resultsView = (
-    <div className="h-[100dvh] overflow-y-auto bg-gradient-to-br from-[#F5F1E8] via-[#E8DCC8] to-[#fdf8f2]">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-[#F5F1E8] via-[#E8DCC8] to-[#fdf8f2]">
       <ResultsPage
         formData={formData}
         imagePreview={imagePreview}
