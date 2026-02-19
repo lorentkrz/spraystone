@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { StepIndicator } from "@/components/step-indicator";
@@ -155,6 +155,7 @@ const CRM_CULTURE_BY_LANG = {
   fr: "fr-FR",
   nl: "nl-NL",
 } as const;
+
 function App() {
   const { t, lang } = useI18n();
   const [currentStep, setCurrentStep] = useState(1);
@@ -832,8 +833,8 @@ Provide a CONCISE analysis (max 400 words) with:
 
 4. **PRICING ESTIMATE**:
    - Estimate total surface area from photo if not provided
-   - Price model: \u20AC130/m\u00B2 for all finishes except Brique rouge at \u20AC140/m\u00B2
-   - TOTAL PROJECT COST in \u20AC (be specific; single value or a tight range)
+   - Price model (VAT already included): \u20AC130/m\u00B2 for all finishes except Brique rouge at \u20AC140/m\u00B2
+   - TOTAL PROJECT COST in \u20AC must be calculated directly from this VAT-included model (do NOT add VAT again)
 
 5. **TIMELINE**: Realistic duration (e.g., "3-4 weeks")
 
@@ -1287,7 +1288,7 @@ Currently, your facade presents a standard finish with minimal texture. After Sp
 
 **PRICING ESTIMATE**:
 - Estimated surface area: ${surface} m\u00B2
-- Applied rate: \u20AC${ratePerM2}/m\u00B2
+- Applied rate (VAT included): \u20AC${ratePerM2}/m\u00B2
 - **TOTAL PROJECT COST: \u20AC${totalPrice.toLocaleString()}**
 
 **TIMELINE**:
@@ -1699,7 +1700,7 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
       : "step-animate-backward";
   const mainForm = (
     <div
-      className="relative min-h-[100dvh] overflow-y-auto p-2 sm:p-6 lg:p-10"
+      className="relative min-h-screen min-h-[100dvh] p-2 sm:p-6 lg:p-10"
       style={{
         background: "linear-gradient(135deg, #F5F1E8 0%, #E8DCC8 100%)",
       }}
@@ -1872,7 +1873,7 @@ Realistic project duration: 3-4 weeks from approval to completion, including pre
     loadingProgress || t("results.generationPopup.status");
 
   const resultsView = (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#F5F1E8] via-[#E8DCC8] to-[#fdf8f2]">
+    <div className="min-h-screen min-h-[100dvh] bg-gradient-to-br from-[#F5F1E8] via-[#E8DCC8] to-[#fdf8f2]">
       <ResultsPage
         formData={formData}
         imagePreview={imagePreview}

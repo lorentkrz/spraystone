@@ -42,13 +42,20 @@ body,
   min-height: 100%;
 }
 
+html {
+  height: -webkit-fill-available;
+}
+
 body {
   margin: 0;
   overflow-x: hidden;
+  overflow-y: auto;
   font-family: 'Manrope', 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+  min-height: -webkit-fill-available;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Click affordance */

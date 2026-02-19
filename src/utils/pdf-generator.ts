@@ -29,12 +29,6 @@ const loadLogo = async (): Promise<string | null> => {
   }
 };
 
-const parseNumber = (s: string | number | null | undefined): number | null => {
-  if (!s) return null;
-  const digits = String(s).replace(/[^\d]/g, "");
-  return digits ? parseInt(digits, 10) : null;
-};
-
 const roundToNearest = (value: number, step: number) =>
   Math.round(value / step) * step;
 
@@ -93,40 +87,24 @@ const parseSurfaceAreaAverage = (
   return isNaN(num) ? null : num;
 };
 
-const deriveFixedEstimateAmount = (text: string, formData: FormData): number => {
-  const totalRange =
-    text.match(/TOTAL\s+PROJECT\s+COST[^\d]*([\d.,]+)\s*-\s*([\d.,]+)/i) ||
-    text.match(/TOTAL[^\d]*([\d.,]+)\s*-\s*([\d.,]+)/i);
-  if (totalRange) {
-    const lo = parseNumber(totalRange[1]);
-    const hi = parseNumber(totalRange[2]);
-    if (lo && hi) {
-      return roundToNearest((lo + hi) / 2, 100);
-    }
-  }
+const PRICE_PER_M2_BY_FINISH: Record<string, number> = {
+  "natural-stone": 130,
+  smooth: 130,
+  textured: 130,
+  "gris-bleue": 130,
+  "gris-bleue-nuancee": 130,
+  brick: 140,
+  suggest: 130,
+  other: 130,
+};
 
-  const single = text.match(/TOTAL\s+PROJECT\s+COST[^\d]*([\d.,]+)/i);
-  if (single) {
-    const v = parseNumber(single[1]);
-    if (v) return roundToNearest(v, 100);
-  }
+const getPricePerM2 = (finish: FormData["finish"]) =>
+  PRICE_PER_M2_BY_FINISH[finish || "natural-stone"] ?? 130;
 
-  const perM2 = text.match(
-    /(?:\u20AC|\bEUR\b)?\s*([\d.,]+)\s*-\s*(?:\u20AC|\bEUR\b)?\s*([\d.,]+)\s*\/\s*m(?:\u00B2|2)/i
-  );
-  if (perM2) {
-    const lo = parseNumber(perM2[1]);
-    const hi = parseNumber(perM2[2]);
-    const area = parseSurfaceAreaAverage(formData.surfaceArea) || 100;
-    if (lo && hi) {
-      const avg = (lo + hi) / 2;
-      return roundToNearest(avg * area, 100);
-    }
-  }
-
-  const fallbackArea = parseSurfaceAreaAverage(formData.surfaceArea) || 100;
-  const fallbackRatePerM2 = 115;
-  return roundToNearest(fallbackArea * fallbackRatePerM2, 100);
+const deriveFixedEstimateAmount = (_text: string, formData: FormData): number => {
+  const surface = parseSurfaceAreaAverage(formData.surfaceArea) || 100;
+  const rate = getPricePerM2(formData.finish);
+  return roundToNearest(surface * rate, 10);
 };
 
 const LOAN_TAEG = 0.0699;
@@ -138,12 +116,15 @@ const calculateMonthlyInstallment = (
   taeg: number
 ): number | null => {
   if (!principal || principal <= 0 || !months || months <= 0) return null;
-  const calcRate = loanCalcRate(taeg);
-  const monthlyRate = calcRate / 12;
+  const monthlyRate = Math.pow(1 + taeg, 1 / 12) - 1;
+  if (!Number.isFinite(monthlyRate) || monthlyRate <= 0) {
+    return principal / months;
+  }
   if (monthlyRate === 0) return principal / months;
   return (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -months));
 };
 
+const MIN_MONTHS = 12;
 const LEGAL_MAX_DURATIONS = [
   { min: 200, max: 500, months: 18 },
   { min: 501, max: 2500, months: 24 },
@@ -160,7 +141,7 @@ const getMaxDurationMonths = (amount: number): number => {
   for (const rule of LEGAL_MAX_DURATIONS) {
     if (amount >= rule.min && amount <= rule.max) return rule.months;
   }
-  return 120;
+  return MIN_MONTHS;
 };
 
 const formatPhone = (data: FormData): string => {
@@ -200,7 +181,7 @@ export const generateQuotePDF = async (
   const estimateAmount = deriveFixedEstimateAmount(result, formData);
   const estimateLabel = formatEur(estimateAmount, { maximumFractionDigits: 0 });
   const maxDurationMonths = getMaxDurationMonths(estimateAmount);
-  const durationMonths = Math.min(48, maxDurationMonths);
+  const durationMonths = Math.min(36, maxDurationMonths);
   const installment = calculateMonthlyInstallment(
     estimateAmount,
     durationMonths,
