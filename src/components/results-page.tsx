@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarClock,
   Camera,
@@ -109,11 +109,18 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
   onRestart,
 }) => {
   const { t, locale } = useI18n();
+  const pageRef = useRef<HTMLDivElement | null>(null);
 
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [modalImage, setModalImage] = useState<string | null>(null);
   const [modalTitle, setModalTitle] = useState<string>('');
   const [modalDescription, setModalDescription] = useState<string>('');
+
+  useEffect(() => {
+    pageRef.current?.focus({ preventScroll: true });
+    pageRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, []);
 
   const formatEur = (value: number, options: Intl.NumberFormatOptions = {}) =>
     new Intl.NumberFormat(locale, {
@@ -352,7 +359,12 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
         description={modalDescription}
       />
 
-      <div className="relative min-h-screen min-h-[100dvh] bg-gradient-to-br from-[#F5F1E8] via-[#E8DCC8] to-[#fdf8f2]">
+      <div
+        ref={pageRef}
+        className="relative h-[100dvh] overflow-x-hidden overflow-y-auto overscroll-y-contain bg-gradient-to-br from-[#F5F1E8] via-[#E8DCC8] to-[#fdf8f2]"
+        tabIndex={-1}
+        style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+      >
         <div className="relative mx-auto w-full max-w-[1320px] px-4 py-4 sm:px-6 sm:py-5">
           <div className="pointer-events-none absolute -left-20 top-6 h-36 w-36 rounded-full bg-white/30 blur-3xl" />
           <div className="pointer-events-none absolute -right-10 top-20 h-32 w-32 rounded-full bg-[#e8d7be]/30 blur-3xl" />

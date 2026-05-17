@@ -24,15 +24,14 @@ export const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageSr
   const [dragStart, setDragStart] = useState<Position>({ x: 0, y: 0 });
 
   useEffect(() => {
+    if (!isOpen) return;
     const prevOverflow = document.body.style.overflow;
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      // Reset on open
-      setZoom(1);
-      setRotation(0);
-      setPosition({ x: 0, y: 0 });
-    }
-    
+    document.body.style.overflow = 'hidden';
+    // Reset on open
+    setZoom(1);
+    setRotation(0);
+    setPosition({ x: 0, y: 0 });
+
     return () => {
       document.body.style.overflow = prevOverflow;
     };
